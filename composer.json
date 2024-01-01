@@ -1,7 +1,7 @@
 {
-    "name": "key-value-bundle",
+    "name": "survos/key-value-bundle",
     "type": "symfony-bundle",
-    "description": "key-value-bundle Bundle",
+    "description": "Symfony Bundle to easily allow a SQLite Key Value lookup",
     "keywords": [
         "symfony-ux",
         "symfony6"
