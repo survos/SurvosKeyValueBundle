@@ -9,7 +9,7 @@ use Symfony\Component\Cache\CacheItem;
  *
  * https://gist.github.com/sbrl/c3bfbbbb3d1419332e9ece1bac8bb71c
  *
- * a multi-table Sqlite key-value data store.
+ * a multi-table, multi-lingual Sqlite key-value data store.
  * @license Apache 2.0
  */
 
@@ -47,6 +47,7 @@ class StorageBox
                 $this->tables[] = $table;
             }
         }
+        // defaults to first table
         $this->currentTable = current($this->tablesToCreate)??current($this->tables);
     }
 
