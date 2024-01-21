@@ -140,6 +140,15 @@ class StorageBox
             ["key" => $key]
         )->fetchColumn();
     }
+    public function getValueObject(string $key, string $table = null, callable $fn = null): ?object
+    {
+        return json_decode($this->get($key, $table), true);
+    }
+
+    public function setValueObject(string $key, string $table = null, object|array $value): void
+    {
+        $this->set($key, json_encode($value), $table);
+    }
 
     /**
      * Sets a value in the data store.
