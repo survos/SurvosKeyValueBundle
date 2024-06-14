@@ -2,6 +2,8 @@
 
 namespace Survos\KeyValueBundle;
 
+// see https://github.com/bungle/web.php/blob/master/sqlite.php for a wrapper without PDO
+
 use \PDO;
 use Symfony\Component\Cache\CacheItem;
 
@@ -21,6 +23,7 @@ class StorageBox
      */
     private \PDO $db;
     private array $tables = [];
+    private bool $inTransaction = false;
 
     /**
      * Initialises a new store connection.
@@ -32,19 +35,28 @@ class StorageBox
                          private ?string $currentTable = null
     )
     {
-        // @todo: bind
-        $this->db = new \PDO("sqlite:" . ($path = $filename));
-        // Enable WAL mode to fix locking issues like #8035.
-        $this->db->query("PRAGMA journal_mode=WAL");
-        // Change the default timeout (60) to a smaller value
-        $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);
-//        $this->db = new \SQLite3($this->filename);
         $path = $this->filename;
+
+        // Enable WAL mode to fix locking issues?
+//        $this->beginTransaction();
+//        $sqlite3 = new \SQLite3($this->filename);
 //        dd($this->filename, $path);
         // HACK: This might not work on some systems, because it depends on the current working directory
-        $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        // PDO creates the db if it doesn't exist, so check after
+        if (!file_exists($path)) {
+            $this->db = new \PDO("sqlite:" . $path);
+//            $this->db->query("PRAGMA journal_mode=WAL");
+//            $this->db->query("PRAGMA lock_timeout=5");
+            $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);
+//            $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } else {
+            $this->db = new \PDO("sqlite:" . $path);
+        }
+
         $sth = $this->db->query($sql = "SELECT name FROM sqlite_master where type='table'");
         $this->tables = $sth->fetchAll(PDO::FETCH_COLUMN); // load the existing tables
+
         foreach ($this->tablesToCreate as $table) {
             if (!in_array($table, $this->tables)) {
                 $this->createTable($table);
@@ -53,6 +65,8 @@ class StorageBox
         }
         // defaults to first table
         $this->currentTable = current($this->tablesToCreate)??current($this->tables);
+//        $this->commit();
+//        $this->beginTransaction();
     }
 
     public function select(string $tableName): self
@@ -66,9 +80,21 @@ class StorageBox
     public function createTable(string $tableName): void
     {
         $sth = $this->query(sprintf("CREATE TABLE IF NOT EXISTS %s (key TEXT UNIQUE NOT NULL, value TEXT)", $tableName));
-
     }
 
+    public function close()
+    {
+        // if a transaction, commit it
+        if ($this->inTransaction) {
+            $this->commit();
+        }
+         unset($this->db);
+    }
+    public function beginTransaction()
+    {
+        assert(!$this->db->inTransaction(), "already in a transaction");
+        $this->db->beginTransaction();
+    }
     public function getFilename(): string
     {
         return realpath($this->filename);
@@ -86,8 +112,13 @@ class StorageBox
      */
     private function query(string $sql, array $variables = []): \PDOStatement
     {
-        // FUTURE: Optionally cache prepared statements?
-        $statement = $this->db->prepare($sql);
+        static $preparedStatements=[];
+        // cache prepared statements
+        if (empty($preparedStatements[$sql])) {
+            $preparedStatements[$sql] = $this->db->prepare($sql);;
+            dump('first time!', $sql, $variables, $preparedStatements[$sql]);
+        }
+        $statement = $preparedStatements[$sql];
         $statement->execute($variables);
 
         return $statement; // fetchColumn(), fetchAll(), etc. are defined on the statement, not the return value of execute()
@@ -98,25 +129,44 @@ class StorageBox
      * @param string $key The key to test.
      * @return    bool    Whether the key exists in the store or not.
      */
-    public function has(string $key, string $table=null): bool
+    public function has(string $key, string $table=null, bool $preloadKeys=false): bool
     {
+        static $keyCache = [];
+        $table =  $table??$this->currentTable;
+
+        if ($preloadKeys) {
+            if (empty($keyCache[$table])) {
+                $keyCache[$table] = $this->query("SELECT key from $table")->fetchAll(PDO::FETCH_COLUMN);
+            }
+            return in_array($key, $keyCache[$table]);
+        }
+
+        //
         // sqlite EXISTS might be faster
+        assert(false);
+        dd($table, $key);
         return $this->query(
-                sprintf("SELECT COUNT(key) FROM %s WHERE key = :key;", $table??$this->currentTable),
+                "SELECT COUNT(key) FROM $table WHERE key = :key",
                 ["key" => $key]
             )->fetchColumn() > 0;
     }
 
-    public function count(string $tableName=null): int
+    public function count(string $table=null): int
     {
+        assert(!$this->db->inTransaction(), "already in a transaction");
+        $table=  $table??$this->currentTable;
         try {
-            return $this->query(
-                $sql = "SELECT COUNT(1) FROM " . ($tableName??$this->currentTable),
+            $count = $this->query(
+                $sql = "SELECT COUNT(key) FROM $table",
             )->fetchColumn();
+            dump($table, $count);
+            return $count;
         } catch (\Exception $exception) {
             dd($sql, $exception);
         }
     }
+
+
 
     public function getSelectedTable(): ?string
     {
@@ -162,14 +212,25 @@ class StorageBox
      */
     public function set(string $key, string|array|object $value, string $table=null): void
     {
+
+        static $preparedStatements=[];
+        $table = $table??$this->currentTable;
+        if (empty($preparedStatements[$table])) {
+            $preparedStatements[$table] =
+                $this->db->prepare("
+                    INSERT OR REPLACE INTO $table(key, value) 
+                        VALUES(:key, :value)
+                ");
+        }
+        $statement = $preparedStatements[$table];
         // @todo: defer these in a batch
-        $this->query(
-            sprintf("INSERT OR REPLACE INTO %s(key, value) VALUES(:key, :value)", $table??$this->currentTable),
-            [
-                "key" => $key,
-                "value" => is_string($value) ? $value : json_encode($value)
-            ]
-        );
+        $results = $statement->execute([
+            "key" => $key,
+            "value" => is_string($value) ? $value : json_encode($value)
+        ]);
+        if (!$results) {
+            dd("Error: " . $statement->errorInfo()[2]);
+        }
     }
 
     /**
@@ -239,6 +300,9 @@ class StorageBox
 
     public function commit()
     {
+        // we could check the db, too
+        assert($this->db->inTransaction(), "NOT in a transaction");
         $this->db->commit();
     }
+
 }
