@@ -34,6 +34,10 @@ class StorageBox
     {
         // @todo: bind
         $this->db = new \PDO("sqlite:" . ($path = $filename));
+        // Enable WAL mode to fix locking issues like #8035.
+        $this->db->query("PRAGMA journal_mode=WAL");
+        // Change the default timeout (60) to a smaller value
+        $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);
 //        $this->db = new \SQLite3($this->filename);
         $path = $this->filename;
 //        dd($this->filename, $path);
@@ -125,7 +129,7 @@ class StorageBox
      * @param string $key The key to store the value under.
      * @return    string    The value to store.
      */
-    public function get(string $key, string $table = null, callable $fn = null): ?string
+    public function get(string $key, string $table = null, callable $fn = null): string|object|array|null
     {
         if (!$this->has($key)) {
             if ($fn) {
@@ -135,10 +139,11 @@ class StorageBox
             }
             return null; // ? throw exception?
         }
-        return $this->query(
+        $results = $this->query(
             sprintf("SELECT value FROM %s WHERE key = :key;", $table??$this->currentTable),
             ["key" => $key]
         )->fetchColumn();
+        return json_decode($results, true);
     }
     public function getValueObject(string $key, string $table = null, callable $fn = null): ?object
     {
@@ -157,6 +162,7 @@ class StorageBox
      */
     public function set(string $key, string|array|object $value, string $table=null): void
     {
+        // @todo: defer these in a batch
         $this->query(
             sprintf("INSERT OR REPLACE INTO %s(key, value) VALUES(:key, :value)", $table??$this->currentTable),
             [
@@ -187,19 +193,48 @@ class StorageBox
         $this->query("DELETE FROM $this->currentTable;");
     }
 
-    public function iterate(string $table = null): \Generator
+    public function iterate(string $table = null,  ?bool $associative = null, int $depth = 512, int $flags = 0): \Generator
     {
         $sth = $this->query("select key, value from " . ($table??$this->currentTable));
+//        $all = $sth->fetchAll($flags);
+
+//        foreach ($all as $idx => $row)
         while ($row = $sth->fetch(PDO::FETCH_ASSOC))
         {
-            yield $row['key'] => $row['value'];
+            $value = $row['value'];
+//            dump($value);
+            $value = json_decode($value, $associative, $depth, $flags);;
+//            dd($value);
+            // check, or is the value always json?
+            yield $row['key'] => $value;
         }
+    }
+
+    public function iterateOver(string $table = null, callable $callback, ?bool $associative = null, int $depth = 512, int $flags = 0): array
+    {
+        $results=[];
+        foreach ($this->iterate($table, $associative, $depth, $flags) as $key => $value) {
+            $results[$key] = $callback($key, $value);
+        }
+        return $results;
     }
 
     public function getKeys(string $table = null): array
     {
         $sth = $this->query("select key from " . ($table??$this->currentTable));
         return $sth->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    public function getTables(): array
+    {
+        $sth = $this->query("SELECT name FROM sqlite_master WHERE type='table';");
+        return $sth->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    public function tableExists(string $table): bool
+    {
+        $sth = $this->query("SELECT * FROM sqlite_master WHERE name='$table' type='table';");
+        return count($sth->fetchAll(PDO::FETCH_COLUMN)) > 0;
     }
 
     public function commit()
