@@ -56,6 +56,10 @@ class StorageBox
             $this->db = new \PDO("sqlite:" . $path);
         }
 
+        $sth = $this->db->query($sql = "SELECT * FROM sqlite_master where type='table'");
+        $this->tables = $sth->fetchAll(); // load the existing tables
+        dd($this->tables);
+
         $sth = $this->db->query($sql = "SELECT name FROM sqlite_master where type='table'");
         $this->tables = $sth->fetchAll(PDO::FETCH_COLUMN); // load the existing tables
 
