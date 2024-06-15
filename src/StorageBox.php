@@ -5,6 +5,7 @@ namespace Survos\KeyValueBundle;
 // see https://github.com/bungle/web.php/blob/master/sqlite.php for a wrapper without PDO
 
 use \PDO;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\CacheItem;
 
 /*
@@ -32,7 +33,8 @@ class StorageBox
      */
     function __construct(private string  $filename,
                          private array   $tablesToCreate = [],
-                         private ?string $currentTable = null
+                         private ?string $currentTable = null,
+                         private readonly ?LoggerInterface $logger=null,
     )
     {
         $path = $this->filename;
@@ -67,6 +69,7 @@ class StorageBox
         $this->currentTable = current($this->tablesToCreate)??current($this->tables);
 //        $this->commit();
 //        $this->beginTransaction();
+        assert(!$this->db->inTransaction());
     }
 
     public function select(string $tableName): self
@@ -82,17 +85,27 @@ class StorageBox
         $sth = $this->query(sprintf("CREATE TABLE IF NOT EXISTS %s (key TEXT UNIQUE NOT NULL, value TEXT)", $tableName));
     }
 
+    private function log($msg)
+    {
+            $this->logger->warning($msg);
+        if ($this->logger) {
+        }
+
+    }
     public function close()
     {
+        $this->log(__METHOD__);
         // if a transaction, commit it
-        if ($this->inTransaction) {
+        if ($this->db->inTransaction()) {
             $this->commit();
         }
          unset($this->db);
     }
     public function beginTransaction()
     {
+        $this->log(__METHOD__);
         assert(!$this->db->inTransaction(), "already in a transaction");
+
         $this->db->beginTransaction();
     }
     public function getFilename(): string
@@ -116,7 +129,6 @@ class StorageBox
         // cache prepared statements
         if (empty($preparedStatements[$sql])) {
             $preparedStatements[$sql] = $this->db->prepare($sql);;
-            dump('first time!', $sql, $variables, $preparedStatements[$sql]);
         }
         $statement = $preparedStatements[$sql];
         $statement->execute($variables);
@@ -143,8 +155,6 @@ class StorageBox
 
         //
         // sqlite EXISTS might be faster
-        assert(false);
-        dd($table, $key);
         return $this->query(
                 "SELECT COUNT(key) FROM $table WHERE key = :key",
                 ["key" => $key]
@@ -153,13 +163,11 @@ class StorageBox
 
     public function count(string $table=null): int
     {
-        assert(!$this->db->inTransaction(), "already in a transaction");
-        $table=  $table??$this->currentTable;
+//        assert(!$this->db->inTransaction(), "already in a transaction");
+        $table=$table??$this->currentTable;
         try {
-            $count = $this->query(
-                $sql = "SELECT COUNT(key) FROM $table",
-            )->fetchColumn();
-            dump($table, $count);
+            $count = $this->query($sql = "SELECT COUNT(key) FROM $table")->fetchColumn();
+            $this->log("$table has $count");
             return $count;
         } catch (\Exception $exception) {
             dd($sql, $exception);
@@ -210,7 +218,7 @@ class StorageBox
      * @param string $key The key to set the value of.
      * @param string $value The value to store.
      */
-    public function set(string $key, string|array|object $value, string $table=null): void
+    public function set(string $key, string|array|object $value, string $table=null): mixed
     {
 
         static $preparedStatements=[];
@@ -224,6 +232,7 @@ class StorageBox
         }
         $statement = $preparedStatements[$table];
         // @todo: defer these in a batch
+        assert($this->db->inTransaction());
         $results = $statement->execute([
             "key" => $key,
             "value" => is_string($value) ? $value : json_encode($value)
@@ -231,6 +240,7 @@ class StorageBox
         if (!$results) {
             dd("Error: " . $statement->errorInfo()[2]);
         }
+        return $results;
     }
 
     /**
@@ -256,11 +266,14 @@ class StorageBox
 
     public function iterate(string $table = null,  ?bool $associative = null, int $depth = 512, int $flags = 0): \Generator
     {
+        // https://stackoverflow.com/questions/78623214/using-a-generator-to-loop-through-an-update-a-table-in-pdo
         $sth = $this->query("select key, value from " . ($table??$this->currentTable));
-//        $all = $sth->fetchAll($flags);
+//        return $sth->execute();
+        $all = $sth->fetchAll($flags);
 
-//        foreach ($all as $idx => $row)
-        while ($row = $sth->fetch(PDO::FETCH_ASSOC))
+        foreach ($all as $idx => $row)
+//        foreach ($sth as $idx => $row)
+//        while ($row = $sth->fetch(PDO::FETCH_ASSOC))
         {
             $value = $row['value'];
 //            dump($value);
@@ -300,9 +313,11 @@ class StorageBox
 
     public function commit()
     {
+        $this->log(__METHOD__);
         // we could check the db, too
         assert($this->db->inTransaction(), "NOT in a transaction");
         $this->db->commit();
+        assert(!$this->db->inTransaction(), "STILL in a transaction");
     }
 
 }

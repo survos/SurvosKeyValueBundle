@@ -7,6 +7,7 @@ namespace Survos\KeyValueBundle;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 class SurvosKeyValueBundle extends AbstractBundle
@@ -14,8 +15,11 @@ class SurvosKeyValueBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
 
+        // storageBoxService, right?  Then get an instance of the storageBox?
         $builder->register(StorageBox::class)
-            ->setAutowired(true);
+            ->setAutowired(true)
+            ->setArgument('$logger', new Reference('logger'))
+            ;
 
 
         // twig classes
