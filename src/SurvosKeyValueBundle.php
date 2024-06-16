@@ -4,6 +4,7 @@
 
 namespace Survos\KeyValueBundle;
 
+use Survos\KeyValueBundle\Service\KeyValueService;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -21,6 +22,10 @@ class SurvosKeyValueBundle extends AbstractBundle
             ->setArgument('$logger', new Reference('logger'))
             ;
 
+        $x = $builder->register(KeyValueService::class)
+            ->setAutowired(true)
+            ->setArgument('$logger', new Reference('logger'))
+        ;
 
         // twig classes
 

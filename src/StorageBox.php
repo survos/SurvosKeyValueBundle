@@ -4,6 +4,8 @@ namespace Survos\KeyValueBundle;
 
 // see https://github.com/bungle/web.php/blob/master/sqlite.php for a wrapper without PDO
 
+use Doctrine\DBAL\DriverManager;
+use JetBrains\PhpStorm\NoReturn;
 use \PDO;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\CacheItem;
@@ -31,10 +33,11 @@ class StorageBox
      * @param string $filename The filename that the store is located in.
      * @param array $tablesToCreate The ADDITIONAL tables to create with writing.  Others may already exist.
      */
-    function __construct(private string  $filename,
-                         private array   $tablesToCreate = [],
-                         private ?string $currentTable = null,
-                         private readonly ?LoggerInterface $logger=null,
+    #[NoReturn] function __construct(private string                    $filename,
+                                     private array                     $tablesToCreate = [],
+                                     private ?string                   $currentTable = null,
+                                     private string $valueType='json', // eventually jsonb
+                                     private readonly ?LoggerInterface $logger=null,
     )
     {
         $path = $this->filename;
@@ -56,16 +59,12 @@ class StorageBox
             $this->db = new \PDO("sqlite:" . $path);
         }
 
-        $sth = $this->db->query($sql = "SELECT * FROM sqlite_master where type='table'");
-        $this->tables = $sth->fetchAll(); // load the existing tables
-        dd($this->tables);
-
         $sth = $this->db->query($sql = "SELECT name FROM sqlite_master where type='table'");
         $this->tables = $sth->fetchAll(PDO::FETCH_COLUMN); // load the existing tables
 
-        foreach ($this->tablesToCreate as $table) {
+        foreach ($this->tablesToCreate as $table=>$indexes) {
             if (!in_array($table, $this->tables)) {
-                $this->createTable($table);
+                $this->createTable($table, $indexes, $this->valueType);
                 $this->tables[] = $table;
             }
         }
@@ -84,9 +83,62 @@ class StorageBox
 
     }
 
-    public function createTable(string $tableName): void
+    public function inspectSchema(string $filename=null)
     {
-        $sth = $this->query(sprintf("CREATE TABLE IF NOT EXISTS %s (key TEXT UNIQUE NOT NULL, value TEXT)", $tableName));
+
+        $filename = $filename??$this->getFilename();
+        // is it necessary to open it again, or can we get this from the PDO?
+        $connectionParams = [
+            'path' => $filename,
+            'driver' => 'pdo_sqlite',
+        ];
+        try {
+            $conn = DriverManager::getConnection($connectionParams);
+            $sm = $conn->createSchemaManager();
+            $fromSchema = $sm->introspectSchema();
+
+            $tables = [];
+            foreach ($fromSchema->getTables() as $table) {
+                $columns = [];
+                foreach ($table->getColumns() as $column) {
+                    $tables[$table->getName()]['columns'][] = $column->getName();
+                }
+            }
+
+            dd($fromSchema, $tables);
+        } catch (\Exception $exception) {
+            dd($exception, $filename);
+        }
+    }
+
+
+    public function createTable(string $tableName, string $indexes, string $valueType, string $primaryKeyType='int'): void
+    {
+        // @todo: improve PK: https://www.sqlitetutorial.net/sqlite-primary-key/
+        $primaryKey = 'key TEXT PRIMARY KEY';
+        $columns = [
+            'value TEXT NOT NULL',
+        ];
+        foreach (explode(',', $indexes) as $index) {
+            if (str_contains($index, '|')) {
+                [$index, $type] = explode('|', $index);
+            } else {
+                $type = 'TEXT';
+            }
+            // @todo: handle auto-increment
+            if (str_starts_with($index, '++'))
+            {
+                $index = substr($index, 2);
+                $primaryKey = "$index $type PRIMARY KEY";
+            } else {
+//                https://www.sqlite.org/gencol.html 
+                $columns[] = "$index $type";
+            }
+        }
+        array_unshift($columns, $primaryKey);
+        $sql = sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", $tableName, join(",\n", $columns));
+        dd($sql);
+        $sth = $this->query($sql);
     }
 
     private function log($msg)
