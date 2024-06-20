@@ -58,7 +58,11 @@ class StorageBox
 
         // PDO creates the db if it doesn't exist, so check after
         if (!file_exists($path)) {
-            $this->db = new \PDO("sqlite:" . $path);
+            try {
+                $this->db = new \PDO("sqlite:" . $path);
+            } catch (\PDOException $e) {
+                dd($path, $e->getMessage());
+            }
 //            $this->db->query("PRAGMA journal_mode=WAL");
 //            $this->db->query("PRAGMA lock_timeout=5");
             $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);

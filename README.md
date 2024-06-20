@@ -4,7 +4,7 @@ A Symfony bundle that leverages Sqlite to create an indexed no-sql datastore.
 
 Inspired by https://gist.github.com/sbrl/c3bfbbbb3d1419332e9ece1bac8bb71c and https://dexie.org/ and the Symfony PDO Cache component.
 
-At its core, the idea is to store strings or unstructured data accessibile by a key or a filter.
+At its core, the idea is to store strings or unstructured data accessible by a key or a filter.
 
 Initially, it was just a string lookup, which could be a JSON string, for example looking up a wikidata object by its QID, or a movie from a csv file by its imdb_id.
 
@@ -19,6 +19,14 @@ There is (will be) an API endpoint if api-platform is installed.
 Integration with survos/translation-bundle
 
 ## Examples
+
+### Reading an Existing Pixy
+
+```php
+$pixy = new Pixy::Reader('school.pixy');
+$pixy->select('mo')
+foreach ($pixy->)
+```
 
 ```bash
 wget https://dummyjson.com/products products.json

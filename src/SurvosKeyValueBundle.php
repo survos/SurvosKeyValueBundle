@@ -5,6 +5,7 @@
 namespace Survos\KeyValueBundle;
 
 use Survos\KeyValueBundle\Service\KeyValueService;
+use Survos\KeyValueBundle\Service\PixyImportService;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -16,7 +17,7 @@ class SurvosKeyValueBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
 
-        // storageBoxService, right?  Then get an instance of the storageBox?
+        // storageBoxService, right?  Then get an instance of the storageBox? PixyService?
         $builder->register(StorageBox::class)
             ->setAutowired(true)
             ->setArgument('$logger', new Reference('logger'))
@@ -25,6 +26,11 @@ class SurvosKeyValueBundle extends AbstractBundle
         $x = $builder->register(KeyValueService::class)
             ->setAutowired(true)
             ->setArgument('$logger', new Reference('logger'))
+        ;
+
+        $x = $builder->register(PixyImportService::class)
+            ->setAutowired(true)
+            ->setArgument('$dataDir', $config['directory'])
         ;
 
         // twig classes
