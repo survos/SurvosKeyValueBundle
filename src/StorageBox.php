@@ -45,6 +45,7 @@ class StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
+                                     private array $formatters = [],
     )
     {
         $path = $this->filename;
@@ -92,6 +93,12 @@ class StorageBox
         assert(!$this->db->inTransaction());
     }
 
+    public function addFormatter(callable $callable)
+    {
+        $this->formatters[] = $callable;
+    }
+
+    // @todo: make this an event listener?
     // given the HEADER array, map the key names, for array_combine or csv getRecords
     public function mapHeader(array $header, string $tableName = null): array
     {
@@ -132,7 +139,7 @@ class StorageBox
         }
     }
 
-    public function getPrimaryKey($tableName): string
+    public function getPrimaryKey(?string $tableName=null): string
     {
         $tableName = $tableName ?? $this->currentTable;
         return $this->inspectSchema()[$tableName]->pkName;
@@ -152,7 +159,6 @@ class StorageBox
             'path' => $filename,
             'driver' => 'pdo_sqlite',
         ];
-        try {
             $conn = DriverManager::getConnection($connectionParams);
             $sm = $conn->createSchemaManager();
             $fromSchema = $sm->introspectSchema();
@@ -167,6 +173,7 @@ class StorageBox
                 $tables[$schemaTable->getName()] = $table;
             }
 //            dd($fromSchema, $tables);
+        try {
         } catch (\Exception $exception) {
             dd($exception, $filename);
         }
@@ -260,10 +267,15 @@ class StorageBox
             }
         }
         array_unshift($columns, $primaryKey);
+
         $sql = sprintf("CREATE TABLE IF NOT EXISTS %s (%s); %s", $tableName,
             join(",\n", $columns),
             join(";\n", $indexSql));
-        $result = $this->db->exec($sql);
+        try {
+            $result = $this->db->exec($sql);
+        } catch (\Exception $exception) {
+            dd($exception, $sql, $columns, $indexSql);
+        }
 //        dd($sql, $result);
 //        dd($sql);
     }
@@ -335,10 +347,11 @@ class StorageBox
     {
         static $keyCache = [];
         $table = $table ?? $this->currentTable;
+        $pk = $this->getPrimaryKey($table);
 
         if ($preloadKeys) {
             if (empty($keyCache[$table])) {
-                $keyCache[$table] = $this->query("SELECT key from $table")->fetchAll(PDO::FETCH_COLUMN);
+                $keyCache[$table] = $this->query("SELECT $pk from $table")->fetchAll(PDO::FETCH_COLUMN);
             }
             return in_array($key, $keyCache[$table]);
         }
@@ -346,7 +359,7 @@ class StorageBox
         //
         // sqlite EXISTS might be faster
         return $this->query(
-                "SELECT COUNT(key) FROM $table WHERE key = :key",
+                "SELECT COUNT($pk) FROM $table WHERE $pk = :key",
                 ["key" => $key]
             )->fetchColumn() > 0;
     }
@@ -355,8 +368,9 @@ class StorageBox
     {
 //        assert(!$this->db->inTransaction(), "already in a transaction");
         $table = $table ?? $this->currentTable;
+        $pk = $this->getPrimaryKey($table);
         try {
-            $count = $this->query($sql = "SELECT COUNT(key) FROM $table")->fetchColumn();
+            $count = $this->query($sql = "SELECT COUNT($pk) FROM $table")->fetchColumn();
             $this->log("$table has $count");
             return $count;
         } catch (\Exception $exception) {
@@ -427,7 +441,8 @@ class StorageBox
         /** @var Table $table */
         $table = $this->inspectSchema()[$tableName];
         $keyName = $table->pkName;
-        assert(array_key_exists($keyName, $value), "$keyName missing in " . join(',', array_keys($value)));
+        assert(array_key_exists($keyName, $value),
+            "$keyName missing $tableName in " . join(',', array_keys($value)));
         if (!$key) {
             $key = is_array($value) ? $value[$keyName] : $value->$keyName;
 //            $accessor->getValue($value, $keyName);
@@ -539,13 +554,17 @@ class StorageBox
         return count($sth->fetchAll(PDO::FETCH_COLUMN)) > 0;
     }
 
-    public function getCounts(string $column, string $table = null): array
+    public function getCounts(string $column, string $table = null, int $limit=15): array
     {
         $tablename = $table ?? $this->currentTable;
         $sql = "SELECT COUNT(rowid) as count, $column as value
 FROM $tablename
 GROUP BY $column
-ORDER BY COUNT(rowid) DESC;";
+";
+$sql .= " ORDER BY COUNT(rowid) DESC";
+        if ($limit) {
+            $sql .= " LIMIT " . $limit;
+        }
 
         $sth = $this->query($sql);
         return $sth->fetchAll(PDO::FETCH_ASSOC);

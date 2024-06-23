@@ -23,4 +23,11 @@ class KeyValueService
     {
         return new StorageBox($filename, $tables, valueType: 'string', logger: $this->logger);
     }
+
+    function destroy(string $filename): void
+    {
+        if (file_exists($filename)) {
+            unlink($filename);
+        }
+    }
 }

@@ -4,6 +4,8 @@
 
 namespace Survos\KeyValueBundle;
 
+use Survos\KeyValueBundle\Event\CsvHeaderEvent;
+use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
 use Survos\KeyValueBundle\Service\KeyValueService;
 use Survos\KeyValueBundle\Service\PixyImportService;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -33,17 +35,14 @@ class SurvosKeyValueBundle extends AbstractBundle
             ->setArgument('$dataDir', $config['directory'])
         ;
 
-        // twig classes
+        // register our listener.  We could disable or set priority in the config
+        $builder->register(CsvHeaderEventListener::class)
+            ->addTag('kernel.event_listener', [
+                'method' => 'onCsvHeaderEvent',
+                'event' => CsvHeaderEvent::class])
+            ->setAutowired(true)
+        ;
 
-        /*
-        $definition = $builder
-        ->autowire('survos.barcode_twig', BarcodeTwigExtension::class)
-        ->addTag('twig.extension');
-
-        $definition->setArgument('$widthFactor', $config['widthFactor']);
-        $definition->setArgument('$height', $config['height']);
-        $definition->setArgument('$foregroundColor', $config['foregroundColor']);
-        */
     }
 
     public function configure(DefinitionConfigurator $definition): void
