@@ -4,6 +4,8 @@
 
 namespace Survos\KeyValueBundle;
 
+use App\Controller\PixyController;
+use Survos\ApiGrid\Controller\GridController;
 use Survos\KeyValueBundle\Event\CsvHeaderEvent;
 use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
 use Survos\KeyValueBundle\Service\KeyValueService;
@@ -18,6 +20,15 @@ class SurvosKeyValueBundle extends AbstractBundle
 {
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
+
+        $builder->autowire(PixyController::class)
+            ->addTag('container.service_subscriber')
+            ->addTag('controller.service_arguments')
+//            ->setArgument('$chartBuilder', new Reference('chartjs.builder', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+//            ->setAutoconfigured(true)
+//            ->setAutowired(true)
+//            ->setPublic(true)
+        ;
 
         // storageBoxService, right?  Then get an instance of the storageBox? PixyService?
         $builder->register(StorageBox::class)

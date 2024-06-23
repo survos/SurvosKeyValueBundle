@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controller;
+namespace Survos\KeyValueBundle\Controller;
 
 use League\Csv\Reader;
 use Survos\KeyValueBundle\Service\KeyValueService;
@@ -21,8 +21,9 @@ class PixyController extends AbstractController
 
     public function __construct(
         private ParameterBagInterface $bag,
+        private KeyValueService $keyValueService,
         #[Autowire('%data_dir%')] private string $dataDir,
-        private KeyValueService $keyValueService) {
+    ) {
 
     }
     private function getPixyDbName(string $pixyName): string

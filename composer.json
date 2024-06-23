@@ -13,7 +13,8 @@
         "symfony/config": "^6.4 || ^7.0",
         "symfony/dependency-injection": "^6.4 || ^7.0",
         "symfony/http-kernel": "^6.4 || ^7.0",
-        "twig/twig": "^3.4"
+        "twig/twig": "^3.4",
+        "endroid/installer": "^1.4"
     },
     "autoload": {
         "psr-4": {
@@ -28,5 +29,10 @@
         "symfony/twig-bundle": "^6.4 || ^7.0",
         "symfony/var-dumper": "^6.4 || ^7.0",
         "phpunit/phpunit": "^11.2"
+    },
+    "config": {
+        "allow-plugins": {
+            "endroid/installer": true
+        }
     }
 }
