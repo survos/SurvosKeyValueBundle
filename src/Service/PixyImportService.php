@@ -38,6 +38,7 @@ class PixyImportService
         if ($ignore = $configData["source"]["ignore"] ?? false) {
             $files->notName($ignore);
         }
+        assert($files->count(), "Nofiles in $dirOrFilename");
         foreach ($files as $splFile) {
             $map[$splFile->getRealPath()] = u($splFile->getFilenameWithoutExtension())->snake()->toString();
             foreach ($configData['files'] ?? [] as $rule => $tableName) {
@@ -49,7 +50,6 @@ class PixyImportService
             }
             $fileMap[$splFile->getRealPath()] = $map[$splFile->getRealPath()] ?? null;
         }
-
 
         // only create the tables that match the filenames
         foreach ($fileMap as $fn => $tableName) {
@@ -75,7 +75,7 @@ class PixyImportService
             }
             $tableData = $tables[$tableName];
 //        }
-//        foreach ($tables as $tableName => $tableData) {
+
             $kv->map($tableData['rules'], [$tableName]);
             $kv->select($tableName);
 
@@ -85,8 +85,16 @@ class PixyImportService
                 $firstRow = $iterator->current();
                 // @todo: handle nested properties
                 $headers = array_keys(get_object_vars($firstRow));
-                dd($headers);
                 $iterator->rewind();
+
+                $mappedHeader = $kv->mapHeader($headers);
+                dump($headers, mapped: $mappedHeader);
+                $this->eventDispatcher->dispatch(
+                    $headerEvent = new CsvHeaderEvent($mappedHeader, $fn));
+                dump($headerEvent->header);
+                $headers = $headerEvent->header;
+
+
 
 //                $this->readJson($splFile->getRealPath());
             } elseif (in_array($ext, ['tsv', 'csv', 'txt'])) {
@@ -127,7 +135,11 @@ class PixyImportService
                 }
             }
             foreach ($iterator as $idx => $row) {
-//                dd($idx, $row); return $kv;
+                // if it's json, remap the keys
+                if ($ext === 'json') {
+                    $row = array_combine($headers, array_values((array)$row));
+//                    dd($x, $idx, $row, $headers); return $kv;
+                }
                 foreach ($row as $k => $v) {
                     foreach ($dataRules[$k] ?? [] as $dataRegexRule => $substitution) {
                         $match = preg_match($dataRegexRule, $v, $mm);

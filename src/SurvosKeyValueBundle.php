@@ -21,6 +21,11 @@ class SurvosKeyValueBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
 
+        $x = $builder->register(PixyImportService::class)
+            ->setAutowired(true)
+            ->setArgument('$dataDir', $config['directory'])
+        ;
+
         $builder->autowire(PixyController::class)
             ->addTag('container.service_subscriber')
             ->addTag('controller.service_arguments')
@@ -41,11 +46,6 @@ class SurvosKeyValueBundle extends AbstractBundle
             ->setArgument('$logger', new Reference('logger'))
         ;
 
-        $x = $builder->register(PixyImportService::class)
-            ->setAutowired(true)
-            ->setArgument('$dataDir', $config['directory'])
-        ;
-
         // register our listener.  We could disable or set priority in the config
         $builder->register(CsvHeaderEventListener::class)
             ->addTag('kernel.event_listener', [
@@ -60,7 +60,9 @@ class SurvosKeyValueBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
-            ->scalarNode('directory')->defaultValue('./')->end()
+            ->scalarNode('directory')->info("where to store the pixy db files")->defaultValue('./data')->end()
+            ->scalarNode('extension')->info("the pixy db extension")->defaultValue('.pixy.db')->end()
+            ->scalarNode('config_directory')->info("location of .pixy.yaml config files")->defaultValue('./pixy')->end()
             ->end();
     }
 }

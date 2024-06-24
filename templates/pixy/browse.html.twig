@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Hello !{% endblock %}
+
+{% block body %}
+        <h1>{{ filename }}</h1>
+
+        <twig:simple_datatables
+                :caller="_self"
+                :columns="columns"
+                :data="iterator"
+        >
+            <twig:block name="value">
+                <a href="">{{ row.value }}</a>
+            </twig:block>
+
+        </twig:simple_datatables>
+
+
+
+{% endblock %}

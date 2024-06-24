@@ -8,16 +8,17 @@
         <h1>{{ filename }}</h1>
 
         {#    {{ dump(charts) }} #}
-        {% for tableName, indexes in charts %}
+        {% for tableName, tableData in tables %}
 
 
             <h2>{{ tableName }}</h2>
-            {{ dump(firstRecords[tableName]) }}
-            {% for indexName, chart in indexes %}
+            {{ dump(tableData.first) }}
+            {% for indexName, chart in tableData.charts %}
 
                 <div class="row">
                     <div class="col-md-3">
                         <h3>{{ indexName }}</h3>
+
                         <div class="my-chart">
                             {{ render_chart(chart.chart) }}
                         </div>
@@ -35,8 +36,10 @@
                                 :columns="columns"
                                 :data="chart.counts"
                         >
-                            <twig:block name="value">
-                                <a href="#">{{ row.value }}</a>
+                            <twig:block name="count">
+                                <a href="{{ path('pixy_browse', {index: indexName, value: row.value, 'pixyName': pixyName, tableName: tableName}) }}">
+                                    {{ row.count }}
+                                </a>
                             </twig:block>
 
                         </twig:simple_datatables>

@@ -105,9 +105,11 @@ class StorageBox
         $tableName = $tableName ?? $this->currentTable;
         // $fieldName is the attribute (json) or column name (csv)
         $newHeaders = [];
+        $regexRules = $this->regexRules[$tableName] ?? [];
+        dump(tableName: $tableName, regex: $regexRules);
         foreach ($header as $fieldName) {
             $newFieldName = $fieldName;
-            foreach ($this->regexRules[$tableName] ?? [] as $regex => $value) {
+            foreach ($regexRules as $regex => $value) {
                 if (preg_match($regex, $fieldName, $mm)) {
                     $newFieldName = $value; // @todo: apply a function or rule
                     break; // match first rule only
@@ -441,6 +443,11 @@ class StorageBox
         /** @var Table $table */
         $table = $this->inspectSchema()[$tableName];
         $keyName = $table->pkName;
+        if (!array_key_exists($keyName, $value)) {
+            dd($table, $value, $keyName, $tableName);
+
+        }
+        $value = (array)$value; // if JSON
         assert(array_key_exists($keyName, $value),
             "$keyName missing $tableName in " . join(',', array_keys($value)));
         if (!$key) {
@@ -497,18 +504,33 @@ class StorageBox
     }
 
     public function iterate(string $table = null,
-                            ?bool  $associative = null, int $depth = 512,
+                            ?array $where = [],
+                            ?bool  $associative = null,
+                            int $depth = 512,
                             int    $flags = PDO::FETCH_ASSOC,
                             int    $max = 0
     ): \Generator
     {
         $pkName = $this->getPrimaryKey($table);
         $sql = "select * from " . ($table ?? $this->currentTable);
+
+        // @todo: prepared statement and bind values.
+        $sql .= " where 1=1";
+
+        // dexie format: .where('myField').equals(1) .where('myField').gt(5)
+        // where returns a collection (promise) with no objects. https://dexie.org/docs/Collection/Collection
+        // pass a tuple with operator?  or a string?  I think that's how api grid works.
+        foreach ($where as $key => $value) {
+            $sql .= " and " . $key . " = :$key";
+            $params[$key] = $value;
+        }
         if ($max > 0) {
             $sql .= " limit " . $max;
         }
+//        dd($sql, $params);
+
         // https://stackoverflow.com/questions/78623214/using-a-generator-to-loop-through-an-update-a-table-in-pdo
-        $sth = $this->query($sql);
+        $sth = $this->query($sql, $params);
         $all = $sth->fetchAll($flags);
 
         foreach ($all as $idx => $row)

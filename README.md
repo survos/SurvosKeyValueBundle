@@ -18,8 +18,40 @@ There is (will be) an API endpoint if api-platform is installed.
 
 Integration with survos/translation-bundle
 
+## Setup
+
+All pixy db files have an associated configuration file that describes the mapping and underlying data structure.  Generally it shares the same base filename.
+
+```bash
+curl 
+bin/console pixy:init movies --dir=./data/imdb 
+# ./pixy/movies.yaml created with 4 tables, configure it and run bin/console pixy:import movies --limit 10  
+cat > pixy.movies << 'END'
+(full config)
+END
+bin/console pixy:import movies --limit 10  
+symfony open:local --path="/pixy/movies"
+```
+
+## "Special" Tables
+
+Since pixy databases offer a convenient way to work with Excel data, there is a special table for handling drawings (embedded images).
+It is created with bin/console grid:excel-to-csv (in the grid-group bundle? In museado?)
+
+Excel stores embedded images as "Drawings".  
+
+Translations are also stored as pixy tables, and have their own section.
+
 ## Examples
 
+* Movies (imdb)
+* Schools 
+* 
+
+### CSV Datasets
+
+* https://www.stats.govt.nz/large-datasets/csv-files-for-download/
+* 
 ### Reading an Existing Pixy
 
 ```php

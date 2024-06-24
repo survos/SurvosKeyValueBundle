@@ -48,6 +48,39 @@ class PixyController extends AbstractController
         }
         return null;
     }
+
+    #[Route('/browse/{pixyName}/{tableName}', name: 'pixy_browse')]
+    public function browse(
+                         string $pixyName,
+                         string $tableName,
+                         #[MapQueryParameter] ?string $index=null,
+                         #[MapQueryParameter] ?string $value=null,
+                         #[MapQueryParameter] int $limit = 5
+    ): Response
+    {
+        $pixyDbName = $this->getPixyDbName($pixyName);
+        $kv = $this->keyValueService->getStorageBox($pixyDbName);
+        $where = [];
+        if ($index) {
+            $where[$index] = $value;
+        }
+        $kv->select($tableName);
+        $iterator = $kv->iterate($tableName, $where);
+        $columns = array_keys($iterator->current());
+        $iterator->rewind();
+//        foreach ($kv->iterate($tableName, $where) as $row) {
+//            dd($row);
+//        }
+        // see kaggle for inspiration, https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction/data
+        return $this->render('@SurvosKeyValue/pixy/browse.html.twig', [
+//            'kv' => $kv, // avoidable?/
+            'iterator' => $iterator,
+            'columns' => $columns,
+            'filename' => $kv->getFilename(),
+        ]);
+
+    }
+
     #[Route('/{pixyName}', name: 'pixy_homepage')]
     public function home(ChartBuilderInterface $chartBuilder,
                          string $pixyName,
@@ -59,14 +92,23 @@ class PixyController extends AbstractController
             dd("Import $pixyDbName first");
         }
         $firstRecords = [];
+        $charts = [];
+        $tables = [];
 
         $kv = $this->keyValueService->getStorageBox($pixyDbName);
         foreach ($kv->getTables() as $tableName) {
-            $firstRecords[$tableName] = $kv->iterate($tableName)->current();
+            $tables[$tableName] = [
+                'first' => $kv->iterate($tableName)->current()
+            ];
+
+            $charts = [];
             foreach ($kv->getIndexes($tableName) as $indexName) {
                 $labels =  [];
                 $values = [];
                 $counts = $kv->getCounts($indexName, $tableName, $limit);
+                if (count($counts) === 0) {
+                    continue;
+                }
                 foreach ($counts as $count) {
                     $labels[] = $count['value']; // the property name
                     $values[] = $count['count'];
@@ -94,18 +136,20 @@ class PixyController extends AbstractController
                     ],
                 ]);
 
-                $charts[$tableName][$indexName] = [
+                $charts[$indexName] = [
                     'chart'=> $chart,
                     'counts' => $counts
                     ];
             }
+            $tables[$tableName]['charts'] = $charts;
         }
 
         return $this->render('@SurvosKeyValue/pixy/graphs.html.twig', [
+            'pixyName' => $pixyName,
 //            'kv' => $kv, // avoidable?/
+        'tables' => $tables,
             'filename' => $kv->getFilename(),
-            'firstRecords' => $firstRecords,
-            'charts' => $charts,
+            'firstRecords' => $firstRecords
         ]);
 
     }
