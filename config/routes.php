@@ -4,12 +4,11 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 use Survos\KeyValueBundle\Controller\PixyController;
 
 return function (RoutingConfigurator $routes) {
-    $routes->add('pixy_homepage', '/pixy')
-//        ->controller([PixyCon::class, 'commands'])
+    $routes->add('pixy_homepage', '/pixy/{pixyName}')
+        ->controller([PixyController::class, 'home'])
     ;
-
-    $routes->add('survos_command', '/run-command/{commandName}')
-        ->controller([CommandController::class, 'runCommand'])
+    $routes->add('pixy_import', '/pixy-import/{pixyName}')
+        ->controller([PixyController::class, 'import'])
     ;
 
 };

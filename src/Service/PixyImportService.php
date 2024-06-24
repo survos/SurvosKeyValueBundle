@@ -126,22 +126,22 @@ class PixyImportService
                     }
                 }
             }
-                foreach ($iterator as $idx => $row) {
+            foreach ($iterator as $idx => $row) {
 //                dd($idx, $row); return $kv;
-                    foreach ($row as $k => $v) {
-                        foreach ($dataRules[$k]??[] as $dataRegexRule=>$substitution) {
-                            $match = preg_match($dataRegexRule, $v, $mm);
-                            if ($match) {
-                                // @todo: a preg_replace?
-                                $row[$k] = $substitution === '' ? null : $substitution;
+                foreach ($row as $k => $v) {
+                    foreach ($dataRules[$k] ?? [] as $dataRegexRule => $substitution) {
+                        $match = preg_match($dataRegexRule, $v, $mm);
+                        if ($match) {
+                            // @todo: a preg_replace?
+                            $row[$k] = $substitution === '' ? null : $substitution;
 //                                if ($v == '\N') {
 //                                    dd($row, $k, header: $header, sub: $substitution);
 //                                }
 //                                if ($dataRegexRule == '/\\N/')
 //                                dd($dataRegexRule, $v, $substitution, $k, $mm);
-                            }
                         }
                     }
+                }
 //                        foreach ([
 //                                     function (array $row) {
 //                                         foreach ($row as $k => $v) {
@@ -158,34 +158,34 @@ class PixyImportService
 //                            $row = $callable($row);
 //                        }
 
-                        $kv->set($row);
-                        if ($idx == 1) dump($tableName, $row);
-                        if ($limit && ($idx > $limit)) break;
+                $kv->set($row);
+                if ($idx == 1) dump($tableName, $row);
+                if ($limit && ($idx > $limit)) break;
 //            dd($kv->get($row['id']));
 //            dump($row); break;
-                    }
-                    $kv->commit();
-                }
-                return $kv;
+            }
+            $kv->commit();
+        }
+        return $kv;
 //        dd($fileMap);
 
-            }
+    }
 
-            public
-            function readJson(string $realPath): \Generator
-            {
+    public
+    function readJson(string $realPath): \Generator
+    {
 
 // this usually takes few kB of memory no matter the file size
-                $rows = Items::fromFile($realPath);
-                foreach ($rows->getIterator() as $id => $row) {
-                    yield $id => $row;
-                    dd($realPath, $id, $row);
-                    if (count($user->Artist) > 1) {
-                        dd($id, $user);
-                        return;
-                    }
-                }
-
+        $rows = Items::fromFile($realPath);
+        foreach ($rows->getIterator() as $id => $row) {
+            yield $id => $row;
+            dd($realPath, $id, $row);
+            if (count($user->Artist) > 1) {
+                dd($id, $user);
+                return;
             }
-
         }
+
+    }
+
+}

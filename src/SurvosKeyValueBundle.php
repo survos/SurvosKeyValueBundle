@@ -4,8 +4,8 @@
 
 namespace Survos\KeyValueBundle;
 
-use App\Controller\PixyController;
 use Survos\ApiGrid\Controller\GridController;
+use Survos\KeyValueBundle\Controller\PixyController;
 use Survos\KeyValueBundle\Event\CsvHeaderEvent;
 use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
 use Survos\KeyValueBundle\Service\KeyValueService;

@@ -5,7 +5,7 @@
 {% block body %}
     <div class="example-wrapper">
 
-        <h1>{{ kv.filename }}</h1>
+        <h1>{{ filename }}</h1>
 
         {#    {{ dump(charts) }} #}
         {% for tableName, indexes in charts %}
@@ -14,15 +14,17 @@
             <h2>{{ tableName }}</h2>
             {{ dump(firstRecords[tableName]) }}
             {% for indexName, chart in indexes %}
+
                 <div class="row">
                     <div class="col-md-3">
                         <h3>{{ indexName }}</h3>
                         <div class="my-chart">
-                            {{ render_chart(chart) }}
+                            {{ render_chart(chart.chart) }}
                         </div>
                     </div>
                     <div class="col-md-6">
 
+                        {{ dump(chart) }}
 
                         {% set columns = [
                             {name: 'count', title: '#'},
@@ -31,7 +33,7 @@
                         <twig:simple_datatables
                                 :caller="_self"
                                 :columns="columns"
-                                :data="kv.getCounts(indexName, tableName, 100)"
+                                :data="chart.counts"
                         >
                             <twig:block name="value">
                                 <a href="#">{{ row.value }}</a>

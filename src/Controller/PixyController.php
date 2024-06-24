@@ -70,6 +70,7 @@ class PixyController extends AbstractController
                 foreach ($counts as $count) {
                     $labels[] = $count['value']; // the property name
                     $values[] = $count['count'];
+                    // @todo: composer require phpcolor/bootstrap-colors
                     $colors[] = sprintf('rgb(%d, %d, %d)',
                         rand(0,255),
                         rand(0,255),
@@ -93,15 +94,16 @@ class PixyController extends AbstractController
                     ],
                 ]);
 
-                $charts[$tableName][$indexName] = $chart;
+                $charts[$tableName][$indexName] = [
+                    'chart'=> $chart,
+                    'counts' => $counts
+                    ];
             }
         }
 
-
-
-
-        return $this->render('pixy/graphs.html.twig', [
-            'kv' => $kv, // avoidable?/
+        return $this->render('@SurvosKeyValue/pixy/graphs.html.twig', [
+//            'kv' => $kv, // avoidable?/
+            'filename' => $kv->getFilename(),
             'firstRecords' => $firstRecords,
             'charts' => $charts,
         ]);
