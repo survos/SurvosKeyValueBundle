@@ -7,12 +7,10 @@
 
         <h1>{{ filename }}</h1>
 
-        {#    {{ dump(charts) }} #}
         {% for tableName, tableData in tables %}
 
 
             <h2>{{ tableName }}</h2>
-            {{ dump(tableData.first) }}
             {% for indexName, chart in tableData.charts %}
 
                 <div class="row">
@@ -24,8 +22,6 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-
-                        {{ dump(chart) }}
 
                         {% set columns = [
                             {name: 'count', title: '#'},

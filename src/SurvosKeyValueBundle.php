@@ -6,6 +6,7 @@ namespace Survos\KeyValueBundle;
 
 use Survos\ApiGrid\Controller\GridController;
 use Survos\KeyValueBundle\Controller\PixyController;
+use Survos\KeyValueBundle\Debug\TraceableStorageBox;
 use Survos\KeyValueBundle\Event\CsvHeaderEvent;
 use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
 use Survos\KeyValueBundle\Service\KeyValueService;
@@ -35,14 +36,20 @@ class SurvosKeyValueBundle extends AbstractBundle
 //            ->setPublic(true)
         ;
 
+
         // storageBoxService, right?  Then get an instance of the storageBox? PixyService?
-        $builder->register(StorageBox::class)
-            ->setAutowired(true)
-            ->setArgument('$logger', new Reference('logger'))
+        foreach ([StorageBox::class, TraceableStorageBox::class] as $storageBoxClass) {
+            $builder->register($storageBoxClass)
+                ->setAutowired(true)
+                ->setArgument('$logger', new Reference('logger'))
             ;
+
+        }
 
         $x = $builder->register(KeyValueService::class)
             ->setAutowired(true)
+            ->setArgument('$isDebug', $builder->getParameter('kernel.debug'))
+            ->setArgument('$stopwatch', new Reference('debug.stopwatch'))
             ->setArgument('$logger', new Reference('logger'))
         ;
 

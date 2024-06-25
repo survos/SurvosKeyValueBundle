@@ -12,6 +12,7 @@ use Survos\KeyValueBundle\Model\Index;
 use Survos\KeyValueBundle\Model\Table;
 use Symfony\Component\Cache\CacheItem;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
+use Symfony\Component\Stopwatch\Stopwatch;
 use function Symfony\Component\String\u;
 
 /*
@@ -45,6 +46,7 @@ class StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
+                                     private readonly ?Stopwatch $stopwatch = null,
                                      private array $formatters = [],
     )
     {
@@ -520,6 +522,7 @@ class StorageBox
         // dexie format: .where('myField').equals(1) .where('myField').gt(5)
         // where returns a collection (promise) with no objects. https://dexie.org/docs/Collection/Collection
         // pass a tuple with operator?  or a string?  I think that's how api grid works.
+        $params = [];
         foreach ($where as $key => $value) {
             $sql .= " and " . $key . " = :$key";
             $params[$key] = $value;
