@@ -57,6 +57,7 @@ class SurvosKeyValueBundle extends AbstractBundle
         $x = $builder->register(KeyValueService::class)
             ->setAutowired(true)
             ->setArgument('$isDebug', $builder->getParameter('kernel.debug'))
+            ->setArgument('$dataDir', $config['directory'])
             ->setArgument('$stopwatch', new Reference('debug.stopwatch'))
             ->setArgument('$logger', new Reference('logger'))
         ;

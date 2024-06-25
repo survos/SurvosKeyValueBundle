@@ -21,17 +21,9 @@ class PixyController extends AbstractController
 
     public function __construct(
         private ParameterBagInterface $bag,
-        private KeyValueService $keyValueService,
-        #[Autowire('%data_dir%')] private string $dataDir,
+        private KeyValueService $keyValueService
     ) {
 
-    }
-    private function getPixyDbName(string $pixyName): string
-    {
-
-        //
-//        return $this->dataDir .
-        return $this->bag->get('data_dir') . "/$pixyName.pixy";
     }
 
     private function getPixyConf(string $pixyName): ?string
@@ -40,6 +32,7 @@ class PixyController extends AbstractController
             $this->bag->get('data_dir'),
             $this->bag->get('kernel.project_dir') . "/config/packages/pixy/",
         ];
+        dd($dirs);
         foreach ($dirs as $dir) {
             $fn = $dir . "/$pixyName.yaml";
             if (file_exists($fn)) {
@@ -58,8 +51,8 @@ class PixyController extends AbstractController
                          #[MapQueryParameter] int $limit = 5
     ): Response
     {
-        $pixyDbName = $this->getPixyDbName($pixyName);
-        $kv = $this->keyValueService->getStorageBox($pixyDbName);
+        // need to handle extension
+        $kv = $this->keyValueService->getStorageBox($pixyName . ".pixy");
         $where = [];
         if ($index) {
             $where[$index] = $value;
@@ -87,16 +80,14 @@ class PixyController extends AbstractController
     #[MapQueryParameter] int $limit = 5
     ): Response
     {
-        $pixyDbName = $this->getPixyDbName($pixyName);
-        if (!file_exists($pixyDbName)) {
-            dd("Import $pixyDbName first");
-        }
         $firstRecords = [];
         $charts = [];
         $tables = [];
 
-        $kv = $this->keyValueService->getStorageBox($pixyDbName);
+        $kv = $this->keyValueService->getStorageBox($pixyName);
         foreach ($kv->getTables() as $tableName) {
+            $count = $kv->count($tableName);
+//            dd($tableName, $count);
             $tables[$tableName] = [
                 'first' => $kv->iterate($tableName)->current()
             ];

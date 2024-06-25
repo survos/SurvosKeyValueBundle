@@ -14,43 +14,28 @@ class KeyValueService
 {
     // cache, indexed by filename
     private array $storageBoxes = [];
-    private array $data=[
-        'x' => 'y',
-        'dummy' => 'value'];
 
     public function __construct(
         private bool $isDebug,
+        private array $data=[],
+        private string $dataDir='./',
         private ?LoggerInterface $logger=null,
         private ?Stopwatch $stopwatch=null,
     )
     {
-        $this->innerSearchService(self::class, ['isDebug' => $this->isDebug]);
     }
-
-    private function innerSearchService(string $function, array $args): mixed
-    {
-        $this->stopwatch->start($function);
-
-        $result = 'dummy-result'; //  $this->searchService->{$function}(...$args);
-
-        $event = $this->stopwatch->stop($function);
-
-        $this->data[$function] = [
-            '_params' => $args,
-            '_results' => $result,
-            '_duration' => $event->getDuration(),
-            '_memory' => $event->getMemory(),
-        ];
-
-        return $result;
-    }
-
 
     function getStorageBox(string $filename, array $tables=[]): StorageBox
     {
+        if (!file_exists($filename)) {
+            $filename = $this->dataDir . "/$filename";
+        }
         if (!$kv = $this->storageBoxes[$filename]??false) {
             $class = $this->isDebug ? TraceableStorageBox::class : StorageBox::class;
-            $kv =  new $class($filename, $tables, logger: $this->logger, stopwatch: $this->stopwatch);
+            $kv =  new $class($filename,
+                $this->data, // for debug
+                $tables,
+                logger: $this->logger, stopwatch: $this->stopwatch);
             $this->storageBoxes[$filename] = $kv;
         }
         return $kv;

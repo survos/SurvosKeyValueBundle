@@ -3,13 +3,20 @@
 {% block toolbar %}
     {% set _data = collector.collectedData %}
     {% set hoverText %}
-        {% for key, value in _data %}
-            {{ key }}
-            {{ value|json_encode }}
+        {% for table, functions in _data %}
+            {{ table }}
+            <br />
+            {% for function, calls in functions %}
+                &nbsp;&nbsp;{{ function }} {{ calls|length }}<br />
+            {% endfor %}
         {% endfor %}
-        {{ _data|length  }}
-        {{ _data.count }}
-        #of tbles?
+{#        {% for key, value in _data %}#}
+{#            {{ key }}#}
+{#            {{ value|json_encode }}#}
+{#        {% endfor %}#}
+{#        {{ _data|length  }}#}
+{#        {{ _data.count }}#}
+{#        #of tbles?#}
     {% endset %}
         {% set icon %}
             {{ include('@SurvosKeyValue/DataCollector/pixy.svg') }}
@@ -36,14 +43,39 @@
 {% block panel %}
     <h2>Pixy</h2>
     {% set _data = collector.collectedData %}
-    {{ profiler_dump(_data) }}
-    {{ _data|json_encode }}
     {% if _data is not null %}
         <div class="sf-tabs">
-            {% for _name, _d in _data %}
+            {% for _name, functions in _data %}
                 <div class="tab">
-                    <h3 class="tab-title">{{ _name|title }}</h3>
+                    <h3 class="tab-title">{{ _name }}</h3>
                     <div class="tab-content">
+                        {% for function, calls in functions %}
+{#                            <h3>{{ function }}</h3>#}
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th>call</th>
+                                    <th>results</th>
+                                    <th>duration</th>
+                                    <th>Params</th>
+                                </tr>
+
+                                </thead>
+                                <tbody>
+
+                                {% for call in calls %}
+                                    <tr>
+                                        <td>{{ function }}</td>
+                                        <td>{{ call._results }}</td>
+                                        <td>{{ call._duration }}</td>
+                                        <td>{{ call._params|join(',') }}</td>
+{#                                        <td>{{ _pk }}</td>#}
+{#                                        <td>{{ profiler_dump(call) }}</td>#}
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endfor %}
                         <div class="metrics">
                             <div class="metric">
                                 <span class="value">{{ '%.0f'|format(_d._duration|default(-1)) }} <span class="unit">ms</span></span>

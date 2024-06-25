@@ -39,6 +39,7 @@ class StorageBox
      * @param array $tablesToCreate The ADDITIONAL tables to create with writing.  Others may already exist.
      */
     #[NoReturn] function __construct(private string                    $filename,
+                                     array &$data, // debug data, passed from KeyValue
                                      private array                     $tablesToCreate = [],
                                      private array                     $regexRules = [],
                                      private ?string                   $currentTable = null,
@@ -128,6 +129,11 @@ class StorageBox
         $this->currentTable = $tableName;
         return $this;
 
+    }
+
+    public function getVersion(): string
+    {
+        return "1.0";
     }
 
     /**
@@ -325,7 +331,7 @@ class StorageBox
      * @param array $variables Optional. The variables to substitute into the SQL query.
      * @return    \PDOStatement        The result of the query, as a PDOStatement.
      */
-    private function query(string $sql, array $variables = []): \PDOStatement
+    protected function query(string $sql, array $variables = []): \PDOStatement
     {
         static $preparedStatements = [];
         // cache prepared statements
@@ -505,15 +511,9 @@ class StorageBox
         $this->query("DELETE FROM $this->currentTable;");
     }
 
-    public function iterate(string $table = null,
-                            ?array $where = [],
-                            ?bool  $associative = null,
-                            int $depth = 512,
-                            int    $flags = PDO::FETCH_ASSOC,
-                            int    $max = 0
-    ): \Generator
+    public function getSql(string $table, array $where=[], int $max=0): array
     {
-        $pkName = $this->getPrimaryKey($table);
+        // @todo: only prepare the statement once
         $sql = "select * from " . ($table ?? $this->currentTable);
 
         // @todo: prepared statement and bind values.
@@ -530,6 +530,22 @@ class StorageBox
         if ($max > 0) {
             $sql .= " limit " . $max;
         }
+        return [$sql, $params];
+
+    }
+    public function iterate(string $table = null,
+                            ?array $where = [],
+                            ?bool  $associative = null,
+                            int $depth = 512,
+                            int    $flags = PDO::FETCH_ASSOC,
+                            int    $max = 0
+    ): \Generator
+    {
+        $table = $table??$this->currentTable;
+        assert($table, "no table configuredd");
+        $pkName = $this->getPrimaryKey($table);
+        [$sql, $params] = $this->getSql($table, $where, $max);
+
 //        dd($sql, $params);
 
         // https://stackoverflow.com/questions/78623214/using-a-generator-to-loop-through-an-update-a-table-in-pdo

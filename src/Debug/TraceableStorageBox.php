@@ -14,9 +14,8 @@ use Symfony\Component\Stopwatch\Stopwatch;
 final class TraceableStorageBox extends StorageBox
 {
 //    private Stopwatch $stopwatch;
-    private array $data = [];
-
     #[NoReturn] function __construct(private string                    $filename,
+                                     private array                     &$data, // debug data, passed from KeyValue
                                      private array                     $tablesToCreate = [],
                                      private array                     $regexRules = [],
                                      private ?string                   $currentTable = null,
@@ -24,8 +23,9 @@ final class TraceableStorageBox extends StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
-                                     private array $formatters = [],
-                                     private readonly ?Stopwatch $stopwatch = null,
+                                     private array                     $formatters = [],
+                                     private readonly ?Stopwatch       $stopwatch = null,
+
     )
     {
 
@@ -33,7 +33,13 @@ final class TraceableStorageBox extends StorageBox
 //        $this->stopwatch = $stopwatch;
     }
 
-    public function map(array $tableRegexRules, array $tables = ['__all']) {
+    public function map(array $tableRegexRules, array $tables = ['__all'])
+    {
+        return $this->innerSearchService(__FUNCTION__, \func_get_args());
+    }
+
+    public function getVersion(): string
+    {
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
@@ -41,6 +47,12 @@ final class TraceableStorageBox extends StorageBox
     {
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
+
+    protected function query(string $sql, array $variables = []): \PDOStatement
+    {
+        return $this->innerSearchService(__FUNCTION__, \func_get_args());
+    }
+
 
     public function innerSearchService(string $function, array $args): mixed
     {
@@ -50,13 +62,12 @@ final class TraceableStorageBox extends StorageBox
 
         $event = $this->stopwatch->stop($function);
 
-        $this->data[$function] = [
+        $this->data[$this->getFilename()][$function][] = [
             '_params' => $args,
             '_results' => $result,
             '_duration' => $event->getDuration(),
             '_memory' => $event->getMemory(),
         ];
-
         return $result;
     }
 
@@ -101,29 +112,9 @@ final class TraceableStorageBox extends StorageBox
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
-    public function isSearchable($className): bool
-    {
-        return $this->searchService->isSearchable($className);
-    }
-
-    public function getSearchable(): array
-    {
-        return $this->searchService->getSearchable();
-    }
-
-    public function getConfiguration(): Collection
-    {
-        return $this->searchService->getConfiguration();
-    }
-
-    public function searchableAs(string $className): string
-    {
-        return $this->searchService->searchableAs($className);
-    }
-
-    /** @internal used in the DataCollector class */
-    public function getData(): array
-    {
-        return $this->data;
-    }
+    /** @internal used in the DataCollector class?? */
+//    public function getData(): array
+//    {
+//        return $this->data;
+//    }
 }
