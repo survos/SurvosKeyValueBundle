@@ -46,8 +46,8 @@ class StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
-                                     private readonly ?Stopwatch $stopwatch = null,
                                      private array $formatters = [],
+                                     private readonly ?Stopwatch $stopwatch = null,
     )
     {
         $path = $this->filename;

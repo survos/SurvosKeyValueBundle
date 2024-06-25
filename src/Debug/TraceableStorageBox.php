@@ -42,7 +42,7 @@ final class TraceableStorageBox extends StorageBox
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
-    private function innerSearchService(string $function, array $args): mixed
+    public function innerSearchService(string $function, array $args): mixed
     {
         $this->stopwatch->start($function);
 

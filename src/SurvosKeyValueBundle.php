@@ -6,6 +6,7 @@ namespace Survos\KeyValueBundle;
 
 use Survos\ApiGrid\Controller\GridController;
 use Survos\KeyValueBundle\Controller\PixyController;
+use Survos\KeyValueBundle\DataCollector\KeyValueDataCollector;
 use Survos\KeyValueBundle\Debug\TraceableStorageBox;
 use Survos\KeyValueBundle\Event\CsvHeaderEvent;
 use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
@@ -35,6 +36,13 @@ class SurvosKeyValueBundle extends AbstractBundle
 //            ->setAutowired(true)
 //            ->setPublic(true)
         ;
+
+        $builder->autowire(KeyValueDataCollector::class)
+            ->setArgument('$keyValueService', new Reference(KeyValueService::class))
+//            ->setArgument('$logger', new Reference('logger'))
+            ->addTag('data_collector', [
+                'template' => '@SurvosKeyValue/DataCollector/pixy_debug_profile.html.twig'
+            ]);
 
 
         // storageBoxService, right?  Then get an instance of the storageBox? PixyService?
