@@ -72,7 +72,12 @@ class StorageBox
             $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);
 //            $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } else {
-            $this->db = new \PDO("sqlite:" . $path);
+            try {
+                $this->db = new \PDO("sqlite:" . $path);
+            } catch (\PDOException $e) {
+                dd($path, $e->getMessage());
+
+            }
         }
 
         $sth = $this->db->query($sql = "SELECT name FROM sqlite_master where type='table'");

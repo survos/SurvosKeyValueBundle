@@ -32,7 +32,6 @@ class PixyController extends AbstractController
             $this->bag->get('data_dir'),
             $this->bag->get('kernel.project_dir') . "/config/packages/pixy/",
         ];
-        dd($dirs);
         foreach ($dirs as $dir) {
             $fn = $dir . "/$pixyName.yaml";
             if (file_exists($fn)) {
@@ -161,8 +160,7 @@ class PixyController extends AbstractController
                 'dir' => "$pixyName"
             ];
         }
-        $pixyDbName = $this->getPixyDbName($pixyName);
-        $pixyImportService->import($config, $pixyDbName, limit: $limit);
+        $pixyImportService->import($config, $pixyName, limit: $limit);
         return $this->redirectToRoute('pixy_homepage', [
             'pixyName' => $pixyName
         ]);
