@@ -2,5 +2,5 @@
 composer.lock
 /phpunit.xml
 /tests/cache
-/text/Fixtures/var
+/tests/Fixtures/var
 /.phpunit.cache
