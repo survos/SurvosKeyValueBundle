@@ -11,6 +11,7 @@ class Index
         public bool $isUnique = false
     )
     {
+        $this->type = strtoupper($this->type);
 
     }
 

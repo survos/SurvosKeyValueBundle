@@ -33,6 +33,7 @@ class StorageBox
     private array $tables = [];
     private bool $inTransaction = false;
 
+//    private array $regexRules=[];
     /**
      * Initialises a new store connection.
      * @param string $filename The filename that the store is located in.
@@ -108,13 +109,13 @@ class StorageBox
 
     // @todo: make this an event listener?
     // given the HEADER array, map the key names, for array_combine or csv getRecords
-    public function mapHeader(array $header, string $tableName = null): array
+    public function mapHeader(array $header, string $tableName = null, array $regexRules=[]): array
     {
         $tableName = $tableName ?? $this->currentTable;
         // $fieldName is the attribute (json) or column name (csv)
         $newHeaders = [];
-        $regexRules = $this->regexRules[$tableName] ?? [];
-        dump(tableName: $tableName, regex: $regexRules);
+//        $regexRules = $this->regexRules[$tableName] ?? [];
+//        dd(tableName: $tableName, regex: $regexRules);
         foreach ($header as $fieldName) {
             $newFieldName = $fieldName;
             foreach ($regexRules as $regex => $value) {
@@ -130,7 +131,9 @@ class StorageBox
 
     public function select(string $tableName): self
     {
-        assert(in_array($tableName, $this->tables), "Missing $tableName in $this->filename, initialize with tablesToCreate");
+        if (!in_array($tableName, $this->tables)) {
+            throw new \LogicException("$tableName is not a in tables array");
+        };
         $this->currentTable = $tableName;
         return $this;
 
@@ -200,7 +203,7 @@ class StorageBox
      * @param string|array $indexConfig
      * @return Index[] array
      */
-    public function getIndexDefinitions(string|array $indexConfig): array
+    static function getIndexDefinitions(string|array $indexConfig): array
     {
         $indexes = [];
         if (is_string($indexConfig)) {

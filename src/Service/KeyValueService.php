@@ -25,11 +25,12 @@ class KeyValueService
     {
     }
 
-    function getStorageBox(string $filename, array $tables=[]): StorageBox
+    function getStorageBox(string $filename, array $tables=[], bool $destroy=false): StorageBox
     {
         if (!file_exists($filename)) {
             $filename = $this->dataDir . "/$filename";
         }
+        $destroy && $this->destroy($filename);
         if (!$kv = $this->storageBoxes[$filename]??false) {
             $class = $this->isDebug ? TraceableStorageBox::class : StorageBox::class;
             $kv =  new $class($filename,
