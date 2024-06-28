@@ -32,6 +32,7 @@ class PixyController extends AbstractController
             $this->bag->get('data_dir'),
             $this->bag->get('kernel.project_dir') . "/config/packages/pixy/",
         ];
+        $pixyName = str_replace('.pixy', '', $pixyName); // hack!
         foreach ($dirs as $dir) {
             $fn = $dir . "/$pixyName.yaml";
             if (file_exists($fn)) {
@@ -39,6 +40,26 @@ class PixyController extends AbstractController
             }
         }
         return null;
+    }
+
+    #[Route('/show/{pixyName}/{tableName}/{key}', name: 'pixy_show_record')]
+    public function show_record(
+        string $pixyName,
+        string $tableName,
+        string $key,
+        #[MapQueryParameter] ?string $index=null,
+        #[MapQueryParameter] ?string $value=null,
+        #[MapQueryParameter] int $limit = 5
+    ): Response
+    {
+        $kv = $this->keyValueService->getStorageBox($pixyName);
+        $kv->select($tableName);
+        $row = (array)$kv->get($key, $tableName);
+        return $this->render('@SurvosKeyValue/pixy/show.html.twig', [
+            'row' => $row,
+            'columns' => array_keys($row),
+            ]);
+
     }
 
     #[Route('/browse/{pixyName}/{tableName}', name: 'pixy_browse')]
@@ -51,7 +72,7 @@ class PixyController extends AbstractController
     ): Response
     {
         // need to handle extension
-        $kv = $this->keyValueService->getStorageBox($pixyName . ".pixy");
+        $kv = $this->keyValueService->getStorageBox($pixyName);
         $where = [];
         if ($index) {
             $where[$index] = $value;
@@ -59,14 +80,18 @@ class PixyController extends AbstractController
         $kv->select($tableName);
         $iterator = $kv->iterate($tableName, $where);
         $columns = array_keys($iterator->current());
+        array_unshift($columns, 'key');
         $iterator->rewind();
 //        foreach ($kv->iterate($tableName, $where) as $row) {
 //            dd($row);
 //        }
         // see kaggle for inspiration, https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction/data
         return $this->render('@SurvosKeyValue/pixy/browse.html.twig', [
+            'pixyName' => $pixyName,
+'tableName' => $tableName,
 //            'kv' => $kv, // avoidable?/
             'iterator' => $iterator,
+            'keyName' => $kv->getPrimaryKey(),
             'columns' => $columns,
             'filename' => $kv->getFilename(),
         ]);

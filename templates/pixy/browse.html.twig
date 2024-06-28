@@ -10,8 +10,15 @@
                 :columns="columns"
                 :data="iterator"
         >
+                <twig:block name="key">
+                    <a href="{{ path('pixy_show_record', {
+                        pixyName: pixyName,
+                        tableName: tableName,
+                        key: row[keyName]
+                    }) }}"> {{ row[keyName] }}</a>
+                </twig:block>
             <twig:block name="value">
-                <a href="">{{ row.value }}</a>
+                <a href="">{{ row.value|default('~~') }}</a>
             </twig:block>
 
         </twig:simple_datatables>

@@ -14,4 +14,8 @@ return function (RoutingConfigurator $routes) {
         ->controller([PixyController::class, 'browse'])
     ;
 
+    $routes->add('pixy_show_record', '/browse/{pixyName}/{tableName}/{key}')
+        ->controller([PixyController::class, 'show_record'])
+    ;
+
 };

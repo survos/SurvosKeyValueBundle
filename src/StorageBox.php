@@ -277,8 +277,8 @@ class StorageBox
 //                https://www.sqlite.org/gencol.html
 
                 // d INT GENERATED ALWAYS AS (a*abs(b)) VIRTUAL,
-                $columns[] = "$name $type  GENERATED ALWAYS AS (json_extract(value, '\$.$name')) STORED";
-                $indexSql[] = "create index {$tableName}_{$name} on $tableName($name)";
+                $columns[] = "$name $type  GENERATED ALWAYS AS (json_extract(value, '\$.$name')) STORED /* @searchable */";
+                $indexSql[] = "create index {$tableName}_{$name} on $tableName($name) /* @filterable */";
             }
         }
         array_unshift($columns, $primaryKey);
@@ -407,12 +407,14 @@ class StorageBox
      */
     public function get(string $key, string $table = null): string|object|array|null
     {
+        $tableName = $table?? $this->currentTable;
+        $keyName = $this->getPrimaryKey($tableName);
         $results = $this->query(
-            sprintf("SELECT * FROM %s WHERE key = :key;", $table ?? $this->currentTable),
+            sprintf("SELECT * FROM %s WHERE $keyName = :key;", $tableName),
             ["key" => $key]
         )->fetchObject();
-        dd($results);
-        return json_decode($results, true);
+        return $results;
+//        return json_decode($results, true);
     }
 
     public function getValue(string $key, string $table = null, callable $fn = null): string|object|array|null
