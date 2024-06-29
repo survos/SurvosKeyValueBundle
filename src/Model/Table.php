@@ -18,9 +18,9 @@ class Table
         return $this->pkName;
     }
 
-    public function setPkName(?string $pkName): void
-    {
-        $this->pkName = $pkName;
-    }
+//    public function setPkName(?string $pkName): void
+//    {
+//        $this->pkName = $pkName;
+//    }
 
 }

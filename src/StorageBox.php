@@ -160,7 +160,7 @@ class StorageBox
     public function getPrimaryKey(?string $tableName=null): string
     {
         $tableName = $tableName ?? $this->currentTable;
-        return $this->inspectSchema()[$tableName]->pkName;
+        return $this->inspectSchema()[$tableName]->getPkName();
 
     }
 
@@ -460,7 +460,7 @@ class StorageBox
 
         /** @var Table $table */
         $table = $this->inspectSchema()[$tableName];
-        $keyName = $table->pkName;
+        $keyName = $table->getPkName();
         if (!array_key_exists($keyName, $value)) {
             dd($table, $value, $keyName, $tableName);
 
