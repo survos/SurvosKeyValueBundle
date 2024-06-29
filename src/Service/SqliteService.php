@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * This is the basis of a migration tool, as it compares the existing database to some schema.
+ *
+ *
+ */
 declare(strict_types=1);
 
 namespace Survos\KeyValueBundle\Service;
@@ -39,8 +44,7 @@ class SqliteService
                     $tables[$table->getName()]['columns'][] = $column->getName();
                 }
             }
-
-            dd($fromSchema, $tables);
+            // @todo: use our Model tables
         } catch (\Exception $exception) {
             dd($exception, $sourceReferences);
         }
@@ -57,15 +61,6 @@ class SqliteService
             // it already exists.
         }
         $sc = $conn->createSchemaManager();
-        $sc->introspectSchema();
-        $newSchema = $sm->introspectSchema();
-        foreach ($newSchema->getTables() as $table) {
-            $columns = [];
-            foreach ($table->getColumns() as $column) {
-                $tables[$table->getName()]['columns'][] = $column->getName();
-            }
-        }
-
 //        dd($sc->listTables(), $queries);
 
 
@@ -91,7 +86,18 @@ class SqliteService
 
         $myPlatform = $conn->getDatabasePlatform();
         $diffs = $myPlatform->getAlterSchemaSQL($schemaDiff);
-        dd($diffs);
+
+        $sc->introspectSchema();
+        $newSchema = $sm->introspectSchema();
+        foreach ($newSchema->getTables() as $table) {
+            $columns = [];
+            foreach ($table->getColumns() as $column) {
+                $tables[$table->getName()]['columns'][] = $column->getName();
+            }
+        }
+
+
+        return [$tables, $diffs];
 
         foreach ($schemaDiff->toSql($myPlatform) as $sql) {
             dump($sql);

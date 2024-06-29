@@ -12,6 +12,7 @@ use Survos\KeyValueBundle\Event\CsvHeaderEvent;
 use Survos\KeyValueBundle\EventListener\CsvHeaderEventListener;
 use Survos\KeyValueBundle\Service\KeyValueService;
 use Survos\KeyValueBundle\Service\PixyImportService;
+use Survos\KeyValueBundle\Service\SqliteService;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -27,6 +28,10 @@ class SurvosKeyValueBundle extends AbstractBundle
             ->setAutowired(true)
             ->setArgument('$dataDir', $config['directory'])
         ;
+
+        $builder->autowire(SqliteService::class)
+            ->setAutowired(true)
+            ->setPublic(true);
 
         $builder->autowire(PixyController::class)
             ->addTag('container.service_subscriber')

@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Yaml\Yaml;
 use Symfony\UX\Chartjs\Builder\ChartBuilderInterface;
@@ -54,7 +55,11 @@ class PixyController extends AbstractController
     {
         $kv = $this->keyValueService->getStorageBox($pixyName);
         $kv->select($tableName);
-        $row = (array)$kv->get($key, $tableName);
+        $row = $kv->get($key, $tableName);
+        if (!$row) {
+            throw new NotFoundHttpException("No key $key in $tableName / $pixyName");
+        }
+        $row = (array)$row;
         return $this->render('@SurvosKeyValue/pixy/show.html.twig', [
             'row' => $row,
             'columns' => array_keys($row),

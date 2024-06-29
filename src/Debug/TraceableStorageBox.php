@@ -9,6 +9,7 @@ use Meilisearch\Bundle\Collection;
 use Meilisearch\Bundle\SearchService;
 use Psr\Log\LoggerInterface;
 use Survos\KeyValueBundle\StorageBox;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 final class TraceableStorageBox extends StorageBox
@@ -23,6 +24,7 @@ final class TraceableStorageBox extends StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
+                                     private readonly ?PropertyAccessorInterface  $accessor = null,
                                      private array                     $formatters = [],
                                      private readonly ?Stopwatch       $stopwatch = null,
 
@@ -72,24 +74,11 @@ final class TraceableStorageBox extends StorageBox
     }
 
 
-    public function index(ObjectManager $objectManager, $searchable): array
-    {
-        return $this->innerSearchService(__FUNCTION__, \func_get_args());
-    }
 
-    public function remove(ObjectManager $objectManager, $searchable): array
-    {
-        return $this->innerSearchService(__FUNCTION__, \func_get_args());
-    }
 
     public function clear(): void
     {
         $this->innerSearchService(__FUNCTION__, \func_get_args());
-    }
-
-    public function deleteByIndexName(string $indexName): ?array
-    {
-        return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
     public function delete(string $key, string $table = null): bool
@@ -97,24 +86,10 @@ final class TraceableStorageBox extends StorageBox
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
-    public function search(ObjectManager $objectManager, string $className, string $query = '', array $searchParams = []): array
-    {
-        return $this->innerSearchService(__FUNCTION__, \func_get_args());
-    }
-
-    public function rawSearch(string $className, string $query = '', array $searchParams = []): array
-    {
-        return $this->innerSearchService(__FUNCTION__, \func_get_args());
-    }
 
     public function count(string $table = null): int
     {
         return $this->innerSearchService(__FUNCTION__, \func_get_args());
     }
 
-    /** @internal used in the DataCollector class?? */
-//    public function getData(): array
-//    {
-//        return $this->data;
-//    }
 }

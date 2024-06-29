@@ -3,5 +3,5 @@ framework:
     annotations: false
 
 survos_key_value:
-    directory: /home/tac/g/sites/headlines/data
+    directory: ./
 

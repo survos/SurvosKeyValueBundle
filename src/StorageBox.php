@@ -12,6 +12,7 @@ use Survos\KeyValueBundle\Model\Index;
 use Survos\KeyValueBundle\Model\Table;
 use Symfony\Component\Cache\CacheItem;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\Stopwatch\Stopwatch;
 use function Symfony\Component\String\u;
 
@@ -48,6 +49,7 @@ class StorageBox
                                      private string                    $valueType = 'json', // eventually jsonb
                                      private bool                      $temporary = false, // nyi
                                      private readonly ?LoggerInterface $logger = null,
+                                     private readonly ?PropertyAccessorInterface $accessor = null,
                                      private array $formatters = [],
                                      private readonly ?Stopwatch $stopwatch = null,
     )
@@ -68,8 +70,8 @@ class StorageBox
             } catch (\PDOException $e) {
                 dd($path, $e->getMessage());
             }
-//            $this->db->query("PRAGMA journal_mode=WAL");
-//            $this->db->query("PRAGMA lock_timeout=5");
+            $this->db->query("PRAGMA journal_mode=WAL");
+            $this->db->query("PRAGMA lock_timeout=5");
             $this->db->setAttribute(PDO::ATTR_TIMEOUT, 10);
 //            $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } else {
@@ -119,6 +121,9 @@ class StorageBox
         foreach ($header as $fieldName) {
             $newFieldName = $fieldName;
             foreach ($regexRules as $regex => $value) {
+//                assert($regex, $regex);
+//                dump($regex, $this->regexRules);
+//                assert(preg_match($regex, ''), $regex);
                 if (preg_match($regex, $fieldName, $mm)) {
                     $newFieldName = $value; // @todo: apply a function or rule
                     break; // match first rule only
@@ -132,7 +137,7 @@ class StorageBox
     public function select(string $tableName): self
     {
         if (!in_array($tableName, $this->tables)) {
-            throw new \LogicException("$tableName is not a in tables array");
+            throw new \LogicException("$tableName is not in tables array");
         };
         $this->currentTable = $tableName;
         return $this;
@@ -166,12 +171,13 @@ class StorageBox
 
     public function inspectSchema(string $filename = null): array
     {
-        static $tables;
-        if (!empty($tables)) {
-            return $tables;
+        $filename = $filename ?? $this->getFilename();
+
+        static $tables=[];
+        if (array_key_exists($filename, $tables)) {
+            return $tables[$filename];
         }
 
-        $filename = $filename ?? $this->getFilename();
         // is it necessary to open it again, or can we get this from the PDO?
         $connectionParams = [
             'path' => $filename,
@@ -188,14 +194,14 @@ class StorageBox
 //                foreach ($schemaTable->getColumns() as $column) {
 //                    $tables[$schemaTable->getName()]['columns'][] = $column->getName();
 //                }
-                $tables[$schemaTable->getName()] = $table;
+                $tables[$filename][$schemaTable->getName()] = $table;
             }
 //            dd($fromSchema, $tables);
         try {
         } catch (\Exception $exception) {
             dd($exception, $filename);
         }
-        return $tables;
+        return $tables[$filename];
     }
 
 
@@ -384,13 +390,13 @@ class StorageBox
 
     public function count(string $table = null): int
     {
-//        assert(!$this->db->inTransaction(), "already in a transaction");
+        assert(!$this->db->inTransaction(), "already in a transaction");
         $table = $table ?? $this->currentTable;
         $pk = $this->getPrimaryKey($table);
-        try {
             $count = $this->query($sql = "SELECT COUNT($pk) FROM $table")->fetchColumn();
             $this->log("$table has $count");
             return $count;
+        try {
         } catch (\Exception $exception) {
             dd($sql, $exception);
         }
@@ -416,35 +422,9 @@ class StorageBox
             sprintf("SELECT * FROM %s WHERE $keyName = :key;", $tableName),
             ["key" => $key]
         )->fetchObject();
-        return $results;
+//        dd($results);
+        return $results ?: null;
 //        return json_decode($results, true);
-    }
-
-    public function getValue(string $key, string $table = null, callable $fn = null): string|object|array|null
-    {
-        if (!$this->has($key)) {
-            if ($fn) {
-                $value = $fn($key);
-                $this->set($key, $value);
-                return $value;
-            }
-            return null; // ? throw exception?
-        }
-        $results = $this->query(
-            sprintf("SELECT value FROM %s WHERE key = :key;", $table ?? $this->currentTable),
-            ["key" => $key]
-        )->fetchColumn();
-        return json_decode($results, true);
-    }
-
-    public function getValueObject(string $key, string $table = null, callable $fn = null): ?object
-    {
-        return json_decode($this->get($key, $table), true);
-    }
-
-    public function setValueObject(string $key, string $table = null, object|array $value): void
-    {
-        $this->set($key, json_encode($value), $table);
     }
 
     /**
@@ -452,18 +432,21 @@ class StorageBox
      * @param string $key The key to set the value of.
      * @param string $value The value to store.
      */
-    public function set(string|array|object $value, string $tableName = null, string|int|null $key=null): mixed
+    public function set(array|object $value, string $tableName = null, string|int|null $key=null): mixed
     {
-        $accessor = new PropertyAccessor(); // @todo: move to constructor?
         static $preparedStatements = [];
         $tableName = $tableName ?? $this->currentTable;
 
         /** @var Table $table */
         $table = $this->inspectSchema()[$tableName];
         $keyName = $table->getPkName();
-        if (!array_key_exists($keyName, $value)) {
+        // @todo: strings require a key, probably another method
+        if (is_object($value)) {
+            $value = (array)$value;
+        }
+        if (is_array($value) && !array_key_exists($keyName, $value)) {
+            throw new \LogicException("Missing key $keyName in document " . join("\n", array_keys($value)));
             dd($table, $value, $keyName, $tableName);
-
         }
         $value = (array)$value; // if JSON
         assert(array_key_exists($keyName, $value),
@@ -483,20 +466,24 @@ class StorageBox
         }
         $statement = $preparedStatements[$tableName];
         // @todo: defer these in a batch
+//        $this->db->beginTransaction();
         assert($this->db->inTransaction());
-        try {
             $results = $statement->execute(
                 $params = [
                     'key' => $key,
                     "value" => is_string($value) ? $value : json_encode($value)
                 ]);
+//            $this->db->commit();
+//        assert(false);
 
+        try {
         } catch (\Exception $exception) {
             dd($exception, $params, $preparedStatements, $tableName);
         }
         if (!$results) {
             dd("Error: " . $statement->errorInfo()[2]);
         }
+
         return $results;
     }
 
@@ -507,8 +494,11 @@ class StorageBox
      */
     public function delete(string $key, string $table = null): bool
     {
+        $tableName = $table?? $this->currentTable;
         return $this->query(
-                sprintf("DELETE FROM %s WHERE key = :key;", $table ?? $this->currentTable),
+                sprintf("DELETE FROM %s WHERE %s = :key;",
+                    $tableName,
+                $this->getPrimaryKey($tableName)),
                 ["key" => $key]
             )->rowCount() > 0;
     }
