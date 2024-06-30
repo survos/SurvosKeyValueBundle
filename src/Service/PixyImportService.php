@@ -25,7 +25,8 @@ class PixyImportService
     {
     }
 
-    public function import(array $configData, string $pixyDbName, ?string $dirOrFilename = null, int $limit = 0): StorageBox
+    public function import(array $configData, string $pixyDbName, ?string $dirOrFilename = null,
+                           int $limit = 0, ?callable $callback=null): StorageBox
     {
         $dirOrFilename = $dirOrFilename ?? $configData["source"]["dir"];
         $finder = new Finder();
@@ -37,7 +38,7 @@ class PixyImportService
         }
         assert(file_exists($dirOrFilename), $dirOrFilename);
 
-        $files = $finder->in($dirOrFilename)->name(['*.json', '*.csv', '*.txt', '*.tsv']);
+        $files = $finder->in($dirOrFilename)->name(['*.json', '*.csv', '*.tsv', '*.txt', '*.tsv']);
         if ($ignore = $configData["source"]["ignore"] ?? false) {
             $files->notName($ignore);
         }
@@ -58,29 +59,39 @@ class PixyImportService
 
 //        list($splFile, $tableName, $mm, $fileMap, $fn, $tables, $tableData, $kv) =
         $kv = $this->createKv($fileMap, $configData, $pixyDbName);
-        $tables = $kv->inspectSchema();
+        assert(count($kv->getTables()), "no tables in $pixyDbName");
+        $validTableNames = $configData['tables'];
 
+        // $fn is the csv filename
         foreach ($fileMap as $fn => $tableName) {
             if (empty($tableName)) {
                 $this->logger && $this->logger->warning("Skipping $fn, no map to tables");
                 continue;
             }
-//            dd($tableName, $tablesToCreate);
-            $table = $kv->inspectSchema()[$tableName]??null;
-
-            if (!$table) {
-                throw new \LogicException("$tableName is not defined in tables ");
-                $this->logger && $this->logger->warning("Skipping $tableName, not defined in tables");
+            $schemaTables = $kv->inspectSchema();
+            if (!array_key_exists($tableName, $validTableNames)) {
+                $this->logger && $this->logger->warning("Skipping $fn, table is undefined");
                 continue;
+                dd($tableName, $kv->getFilename(), $validTableNames, array_keys($schemaTables));
             }
-//            $tableData = (array)$table; // $tables[$tableName];
+//            if (!str_contains($pixyDbName, 'moma')) dd($tableName, $pixyDbName, $kv->getFilename());
+//            dd($tableName, $tablesToCreate);
+//            $table = [$tableName]??null;
 
-            $rules = $configData['tables'][$tableName]['rules'];
+//            if (!$table) {
+////                throw new \LogicException("$tableName is not defined in tables ");
+//                $this->logger && $this->logger->warning("Skipping $tableName, not defined in tables");
+//                continue;
+//            }
+//            $tableData = (array)$table; // $tables[$tableName];
+            $tableData = $configData['tables'][$tableName];
+            $rules = $tableData['rules'];
             $kv->map($rules, [$tableName]);
             $kv->select($tableName);
 
-            list($ext, $iterator, $headers, $mappedHeader) =
+            list($ext, $iterator, $headers) =
                 $this->setupHeader($configData, $tableName, $kv, $fn);
+            assert(count($kv->getTables()), "no tables in $pixyDbName");
 //            dd($mappedHeader, $headers, $tableName, $configData);
 
             // takes a function that will iterate through an object
@@ -92,7 +103,6 @@ class PixyImportService
             // don't parse the header match each time, store them
             $regexRules = $configData['tables'][$tableName]['formatter'] ?? [];
             // why not mapped headers?
-            assert($headers == $mappedHeader, "headers?");
             foreach ($headers as $header) {
                 foreach ($regexRules as $variableRegexRule => $dataRegexRules) {
                     if (preg_match($variableRegexRule, $header)) {
@@ -103,14 +113,14 @@ class PixyImportService
             foreach ($iterator as $idx => $row) {
                 // if it's json, remap the keys
                 if ($ext === 'json') {
-                    $origRow = $row;
+                    $origRow = $row; // for debugging
 //                    dd($row, $headers, $mappedHeader);
-                    $row = array_combine($mappedHeader, array_values((array)$row));
+                    $row = array_combine($headers, array_values((array)$row));
 //                    dump(table: $tableName, orig: $origRow, mapped: $mappedHeader, new_row: $row);
 //                    dd($idx, $row, $headers); return $kv;
                 }
 //                dump($ext, $mappedHeader, $row);
-                assert(array_key_exists('id', $row),
+                assert(array_key_exists($kv->getPrimaryKey($tableName), $row),
                     $tableName . " " .
                     json_encode($row, JSON_PRETTY_PRINT));
 
@@ -120,33 +130,19 @@ class PixyImportService
                         if ($match) {
                             // @todo: a preg_replace?
                             $row[$k] = $substitution === '' ? null : $substitution;
-//                                if ($v == '\N') {
-//                                    dd($row, $k, header: $header, sub: $substitution);
-//                                }
-//                                if ($dataRegexRule == '/\\N/')
-//                                dd($dataRegexRule, $v, $substitution, $k, $mm);
                         }
                     }
                 }
-//                        foreach ([
-//                                     function (array $row) {
-//                                         foreach ($row as $k => $v) {
-//                                             if ($v == '\N') {
-//                                                 $row[$k] = null;
-//                                             }
-//                                             if ($k == 'is_adult') {
-//                                                 $row[$k] = boolval($v);
-//                                             }
-//                                         }
-//                                         return $row;
-//                                     }
-//                                 ] as $callable) {
-//                            $row = $callable($row);
-//                        }
+                assert(count($kv->getTables()), "no tables in $pixyDbName");
 
                 $kv->set($row);
 //                if ($idx == 1) dump($tableName, $row);
                 if ($limit && ($idx > $limit)) break;
+                if ($callback) {
+                    if (!$continue = $callback($row, $idx, $kv)) {
+                        break;
+                    }
+                }
 //            dd($kv->get($row['id']));
 //            dump($row); break;
             }
@@ -170,6 +166,7 @@ class PixyImportService
         }
         if (file_exists($pixyDbName)) unlink($pixyDbName);
         $kv = $this->keyValueService->getStorageBox($pixyDbName, $tablesToCreate);
+//        if (str_contains($kv->getFilename(), 'edu')) dd($kv->getFilename());
         return $kv;
         return array($splFile, $tableName, $mm, $fileMap, $fn, $tables, $tableData, $kv);
 //        dd($fileMap, $tablesToCreate);
@@ -198,19 +195,6 @@ class PixyImportService
             // @todo: handle nested properties
             $headers = array_keys(get_object_vars($firstRow));
             $iterator->rewind();
-            $rules = $configData['tables'][$tableName]['rules'];
-            $mappedHeader = $kv->mapHeader($headers, regexRules: $rules);
-//            dd($rules, $configData, $tableName, filename: $splFile->getFilename(), mappedHeader: $mappedHeader);
-            // keep for replacing the key names later
-//                dd($headers, mapped: $mappedHeader);
-            $this->eventDispatcher->dispatch(
-                $headerEvent = new CsvHeaderEvent($mappedHeader, $fn));
-//
-//                dump($headerEvent->header);
-            $headers = $headerEvent->header;
-
-
-//                $this->readJson($splFile->getRealPath());
         } elseif (in_array($ext, ['tsv', 'csv', 'txt'])) {
             $csvReader = Reader::createFromPath($fn, 'r');
             $result = Info::getDelimiterStats($csvReader, ["\t", ','], 3);
@@ -219,22 +203,30 @@ class PixyImportService
             $csvReader->setDelimiter(array_key_first($result));
             $csvReader->setHeaderOffset(0); //set the CSV header offset
 
-            $originalHeaders = $csvReader->getHeader();
+            $headers = $csvReader->getHeader();
 //                assert(array_key_exists($tableName, $configData), json_encode($configData));
-            $headers = $kv->mapHeader($originalHeaders, regexRules: $configData['tables'][$tableName]['rules']);
-//                dd($originalHeaders, $headers, $configData);
-            $this->eventDispatcher->dispatch(
-                $headerEvent = new CsvHeaderEvent($headers, $fn));
-            $headers = $headerEvent->header;
-            // this could also be handled by a bundle event listener.
-
-            if (count($headers) != count(array_unique($headers))) {
-                dd($headers, array_unique($headers));
-            }
 //                dd($originalHeaders, $headers);
+        }
+
+        $rules = $configData['tables'][$tableName]['rules'];
+        $mappedHeader = $kv->mapHeader($headers, regexRules: $rules);
+//            dd($rules, $configData, $tableName, filename: $splFile->getFilename(), mappedHeader: $mappedHeader);
+        // keep for replacing the key names later
+//                dd($headers, mapped: $mappedHeader);
+        $this->eventDispatcher->dispatch(
+            $headerEvent = new CsvHeaderEvent($mappedHeader, $fn));
+//
+//                dump($headerEvent->header);
+        $headers = $headerEvent->header;
+        if (count($headers) != count(array_unique($headers))) {
+            dd($headers, array_unique($headers));
+        }
+
+        if ($ext !== 'json') {
             $iterator = $csvReader->getRecords($headers);
         }
-        return [$ext, $iterator, $headers, $mappedHeader];
+
+        return [$ext, $iterator, $headers];
     }
 
 }

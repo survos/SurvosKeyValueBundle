@@ -86,6 +86,7 @@ class StorageBox
         $sth = $this->db->query($sql = "SELECT name FROM sqlite_master where type='table'");
         $this->tables = $sth->fetchAll(PDO::FETCH_COLUMN); // load the existing tables
 
+        $this->beginTransaction();
         foreach ($this->tablesToCreate as $table => $indexes) {
 //            dd($indexes, array_is_list($indexes));
 //            dd($this->tablesToCreate, array_is_list($this->tablesToCreate));
@@ -93,8 +94,8 @@ class StorageBox
                 $this->createTable($table, $indexes, $this->valueType);
                 $this->tables[] = $table;
             }
-
         }
+        $this->commit();
 //        $tables = $this->inspectSchema();
 //        dd($this->tablesToCreate, $this->tables, current($this->tablesToCreate));
         // defaults to first table?
@@ -174,7 +175,7 @@ class StorageBox
         $filename = $filename ?? $this->getFilename();
 
         static $tables=[];
-        if (array_key_exists($filename, $tables)) {
+        if (array_key_exists($filename, $tables) && count($tables[$filename])) {
             return $tables[$filename];
         }
 
@@ -187,7 +188,7 @@ class StorageBox
             $sm = $conn->createSchemaManager();
             $fromSchema = $sm->introspectSchema();
 
-            $tables = [];
+            $tables[$filename] = [];
             foreach ($fromSchema->getTables() as $schemaTable) {
                 $primaryIndex = $schemaTable->getIndex('primary');
                 $table = new Table($schemaTable->getName(), $schemaTable->getColumns(), join('-', $primaryIndex->getColumns()));
@@ -295,12 +296,13 @@ class StorageBox
         $sql = sprintf("CREATE TABLE IF NOT EXISTS %s (%s); %s", $tableName,
             join(",\n", $columns),
             join(";\n", $indexSql));
+        dump($sql);
         try {
             $result = $this->db->exec($sql);
         } catch (\Exception $exception) {
             dd($exception, $sql, $columns, $indexSql);
         }
-//        dd($sql, $result);
+//        if (str_contains($sql, 'student')) dd($sql, $result);
 //        dd($sql);
     }
 
@@ -439,6 +441,7 @@ class StorageBox
 
         /** @var Table $table */
         $table = $this->inspectSchema()[$tableName];
+        assert($table, "No table $tableName");
         $keyName = $table->getPkName();
         // @todo: strings require a key, probably another method
         if (is_object($value)) {

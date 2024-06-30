@@ -18,7 +18,8 @@
         "symfony/yaml": "^6.4|7.1",
         "doctrine/dbal": "^3.0|^4.0",
         "symfony/property-access": "^7.1",
-        "halaxa/json-machine": "^1.1"
+        "halaxa/json-machine": "^1.1",
+        "league/csv": "^9.16"
     },
     "autoload": {
         "psr-4": {
@@ -34,7 +35,8 @@
         "symfony/var-dumper": "^6.4 || ^7.0",
         "phpunit/phpunit": "^10.5",
         "symfony/phpunit-bridge": "^7.1",
-        "symfony/stopwatch": "^7.1"
+        "symfony/stopwatch": "^7.1",
+        "spaze/phpstan-disallowed-calls": "^3.4"
     },
     "scripts": {
         "coverage": "php -d xpcov.enabled=1 vendor/bin/phpunit --coverage-html coverage"

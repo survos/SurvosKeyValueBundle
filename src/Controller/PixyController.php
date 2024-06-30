@@ -27,7 +27,7 @@ class PixyController extends AbstractController
 
     }
 
-    private function getPixyConf(string $pixyName): ?string
+    private function getPixyConf(string $pixyName, bool $throwIfMissing=true): ?string
     {
         $dirs = [
             $this->bag->get('data_dir'),
@@ -40,6 +40,7 @@ class PixyController extends AbstractController
                 return $fn;
             }
         }
+        assert(false, "$fn not found");
         return null;
     }
 
@@ -80,11 +81,16 @@ class PixyController extends AbstractController
         $kv = $this->keyValueService->getStorageBox($pixyName);
         $where = [];
         if ($index) {
-            $where[$index] = $value;
+            $where[$index] = $value?:null;
         }
         $kv->select($tableName);
         $iterator = $kv->iterate($tableName, $where);
-        $columns = array_keys($iterator->current());
+
+        if ($firstRow = $iterator->current()) {
+            $columns = array_keys($firstRow);
+        } else {
+            $columns = ['value'];
+        }
         array_unshift($columns, 'key');
         $iterator->rewind();
 //        foreach ($kv->iterate($tableName, $where) as $row) {
@@ -95,7 +101,7 @@ class PixyController extends AbstractController
             'pixyName' => $pixyName,
 'tableName' => $tableName,
 //            'kv' => $kv, // avoidable?/
-            'iterator' => $iterator,
+            'iterator' => $firstRow ? $iterator : [],
             'keyName' => $kv->getPrimaryKey(),
             'columns' => $columns,
             'filename' => $kv->getFilename(),
