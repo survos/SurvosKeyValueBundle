@@ -1,0 +1,20 @@
+parameters:
+    level: 4
+    disallowedFunctionCalls:
+    	-
+    			function: 'dd()'
+    			message: 'dd() will cause problems in production'
+    	-
+    			function: 'dump()'
+    			message: 'usually problematic'
+
+#    inferPrivatePropertyTypeFromConstructor: true
+    paths:
+        - ./src/
+
+    excludePaths:
+      - */cache/*
+
+includes:
+    - vendor/spaze/phpstan-disallowed-calls/extension.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
