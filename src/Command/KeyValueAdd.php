@@ -10,7 +10,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-#[AsCommand('survos:key-value:add', 'Add data to key-valueed')]
+#[AsCommand('survos:key-value:add', 'Add data to key/value storage', aliases: ['kv.add'])]
 class KeyValueAdd extends Command
 {
     public function __construct(private readonly KeyValueManagerInterface $kvManager)
