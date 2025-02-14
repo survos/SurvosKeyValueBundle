@@ -1,49 +1,56 @@
 {
     "name": "survos/key-value-bundle",
+    "description": "manage dynamic key value(s) list",
     "type": "symfony-bundle",
-    "description": "Symfony Bundle to easily allow a SQLite Key Value lookup",
-    "keywords": [
-        "symfony-ux",
-        "symfony6"
-    ],
     "license": "MIT",
-    "require": {
-        "ext-pdo": "*",
-        "php": "^8.2",
-        "symfony/config": "^6.4 || ^7.0",
-        "symfony/dependency-injection": "^6.4 || ^7.0",
-        "symfony/http-kernel": "^6.4 || ^7.0",
-        "twig/twig": "^3.4",
-        "endroid/installer": "^1.4",
-        "symfony/yaml": "^6.4|7.1",
-        "doctrine/dbal": "^3.0|^4.0",
-        "symfony/property-access": "^7.1",
-        "halaxa/json-machine": "^1.1",
-        "league/csv": "^9.16"
-    },
-    "autoload": {
-        "psr-4": {
-            "Survos\\KeyValueBundle\\": "src/",
-            "Survos\\KeyValueBundle\\Tests\\": "tests/"
+    "homepage": "https://github.com/survos/key-value-bundle",
+    "keywords": ["key-value", "bundle", "symfony"],
+    "authors": [
+        {
+            "name": "Tac Tacelosky",
+            "email": "tacman@gmail.com"
+        },
+        {
+            "name": "victor",
+            "email": "fedorenko22116@gmail.com"
         }
+    ],
+    "require": {
+        "php": "^8.1",
+        "symfony/framework-bundle": "^6.4 || ^7.1",
+        "symfony/validator": "^6.4 || ^7.1"
     },
     "require-dev": {
-        "phpstan/phpstan": "^1.10",
-        "symfony/browser-kit": "^6.4 || ^7.0",
-        "symfony/framework-bundle": "^6.4 || ^7.0",
-        "symfony/twig-bundle": "^6.4 || ^7.0",
-        "symfony/var-dumper": "^6.4 || ^7.0",
-        "phpunit/phpunit": "^10.5",
-        "symfony/phpunit-bridge": "^7.1",
-        "symfony/stopwatch": "^7.1",
-        "spaze/phpstan-disallowed-calls": "^3.4"
+        "symfony/yaml": "^6.4 || ^7.1",
+        "doctrine/doctrine-bundle": "*",
+        "doctrine/orm": "^3.0",
+        "symfony/phpunit-bridge": "^6.4 || ^7.1",
+        "phpstan/phpstan": "^2.1",
+        "rector/rector": "^2.0"
     },
-    "scripts": {
-        "coverage": "php -d xpcov.enabled=1 vendor/bin/phpunit --coverage-html coverage"
-    },
-    "config": {
-        "allow-plugins": {
-            "endroid/installer": true
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Survos\\KeyValueBundle\\": "src/"
         }
-    }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Survos\\KeyValueBundle\\Tests\\": "/tests/"
+        }
+    },
+
+    "scripts": {
+        "coverage": "@phpunit-base --coverage-html html --colors ",
+        "cs-check": "mkdir -p var/cache && php-cs-fixer fix --dry-run --diff --cache-file=var/cache/.php_cs.cache",
+        "cs-fix": "mkdir -p var/cache && php-cs-fixer fix --diff --cache-file=var/cache/.php_cs.cache",
+        "local": "git clone git@github.com:survos/SurvosSeoBundle _html && mv _html/.git . && rm -rf _html",
+        "phpstan": "phpstan",
+        "phpunit": "@phpunit-base --testdox",
+        "phpunit-base": "phpunit tests/",
+        "phpunit-coverage-text": "@phpunit-base --coverage-text --colors=never",
+        "show-coverage": "php -S localhost:9004 -t=html"
+    },
+
+    "prefer-stable": true
 }

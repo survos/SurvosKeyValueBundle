@@ -1,182 +1,135 @@
-# Key Value Bundle
+# BadBotBundle
 
-A Symfony bundle that leverages Sqlite to create an indexed no-sql datastore.
+Flexible bundle to handle Key Value(s) list, e.g. a dynamic list of ips and paths to block bad bots.
 
-Inspired by https://gist.github.com/sbrl/c3bfbbbb3d1419332e9ece1bac8bb71c and https://dexie.org/ and the Symfony PDO Cache component.
+Highly inspired by  lsbproject/key-value-bundle https://github.com/AntoineLemaire/KeyValueBundle
 
-At its core, the idea is to store strings or unstructured data accessible by a key or a filter.
+Installation
+============
 
-Initially, it was just a string lookup, which could be a JSON string, for example looking up a wikidata object by its QID, or a movie from a csv file by its imdb_id.
-
-You can customize the import process by adding a .conf file with directives that facilitate renaming fields and munging data.  You can also listen for events during the import and export process.
-
-Pixy can (will, eventually) use json schema files to defining the fields. https://json-schema.org/ using LiFormBundle
-
-The indexes can be defined via the command line, a listener, or a .conf file.  There's a succinct format that is a comma-separated string, and a detailed format with is a hash with the index details as keys.
-
-There is (will be) an API endpoint if api-platform is installed.
-
-Integration with survos/translation-bundle
-
-## Setup
-
-All pixy db files have an associated configuration file that describes the mapping and underlying data structure.  Generally it shares the same base filename.
-
-```bash
-curl 
-bin/console pixy:init movies --dir=./data/imdb 
-# ./pixy/movies.yaml created with 4 tables, configure it and run bin/console pixy:import movies --limit 10  
-cat > pixy.movies << 'END'
-(full config)
-END
-bin/console pixy:import movies --limit 10  
-symfony open:local --path="/pixy/movies"
+```console
+composer require survos/bad-bot-bundle
 ```
 
-## "Special" Tables
+### Update database schema
 
-Since pixy databases offer a convenient way to work with Excel data, there is a special table for handling drawings (embedded images).
-It is created with bin/console grid:excel-to-csv (in the grid-group bundle? In museado?)
+```console
+bin/console doctrine:schema:update --force
+bin/console bot:populate https://github.com/mitchellkrogza/apache-ultimate-bad-bot-blocker/raw/refs/heads/master/_generator_lists/bad-ip-addresses.list
+```
 
-Excel stores embedded images as "Drawings".  
+Usage
+=====
 
-Translations are also stored as pixy tables, and have their own section.
+@todo: https://github.com/mitchellkrogza/apache-ultimate-bad-bot-blocker
 
-## Examples
 
-* Movies (imdb)
-* Schools 
-* 
+@todo: refactor with annotations.
 
-### CSV Datasets
-
-* https://www.stats.govt.nz/large-datasets/csv-files-for-download/
-* 
-### Reading an Existing Pixy
+Really this part could be a generic KeyValuesBundle, e.g. $kvManager->list('ip')
 
 ```php
-$pixy = new Pixy::Reader('school.pixy');
-$pixy->select('mo')
-foreach ($pixy->)
+    use Survos\KeyValueBundle\Validator\Constraints\IsNotKeyValueed;
+
+    //...
+
+    /**
+     * 'baz' type isn't defined in bundle, so it will be handled with
+     * default_type class. Default one has no validation and will compare
+     * any value with other existed
+     *
+     * @IsNotKeyValueed(type="baz", caseSensetive=true)
+     * @var string
+     */
+    private $bar;
+
+    /**
+     * 'email' type will dissallow to put invalid emails in key-value
+     *
+     * @IsNotKeyValueed(type="email", caseSensetive=true)
+     * @var string
+     */
+    private $email;
 ```
 
-```bash
-wget https://dummyjson.com/products products.json
-```
+Types
+-----
+
+Bundle tries to validate exact key-value type with validator types.
+You can implement your own type or use default one.
+To add your own validator just implement `TypeInterface`
+
+e.g.
+
 ```php
-// inject the service
+use Survos\KeyValueBundle\Type\TypeInterface;
+use Survos\KeyValueBundle\Type\DefaultType;
 
-$id = 'tt123';
-$kv = $keyValueService->getStorageBox('dummy.pixy', [
-    'products' => 'sku,brand,category' // first key is text primary key by default
-]);
-
-$kv->select('products'); // so that we don't have to pass it each time.
-
-$kv->set($data); // because they key is in the data.
-assert($kv->get($id));
-assert($kv->has($id));
-assert(json_decode($kv->get($id)) == $data);
-//
-```
-
-The conf file simplifies some of the php calls, but isn't 100% necessary
-
-
-
-Suppose we want to filter by category.  First, we need to add an index, dexie-style, to the table.
-
-```php
-$kv = $keyValueService->getStorageBox('app.db', [
-    'movies' => 'imdb_id, year|integer, category|string' // first key is text primary key by default
-]);
-
-$rows = $kv->where("year < 2000 and category='drama'")->iterate();
-// without the index
-$rows = $kv->where("json_extract(value, '$.year') < 2000")->iterate();
-```
-
-Often CSV files and other data sources have key names that aren't really compatible with sqlite column names.  To map the old names to the new ones, you can create a sequence of regex rules for the column names.
-
-From MOMA Artists.json
-
-```json
+class EmailType extends DefaultType implements TypeInterface
 {
-  "ConstituentID": 1,
-  "DisplayName": "Robert Arneson",
-  "ArtistBio": "American, 1930–1992",
-  "Nationality": "American",
-  "Gender": "male",
-  "BeginDate": 1930,
-  "EndDate": 1992,
-  "Wiki QID": null
+    /**
+     * {@inheritDoc}
+     */
+    public function satisfies(string $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_EMAIL);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function supports(string $type): bool
+    {
+        return $type === 'email';
+    }
 }
 ```
 
-```php
-$kv->map([
-   '/ConstituentID/' => 'id',
-   '/BeginDate/' => 'birthYear',
-   '/EndDate/' => 'deathYear'
-], [
-    'artists'
-]);
+and tag it with `lsbproject.key-value.type`
+
+```yaml
+  email_key-value_type:
+    class: 'Survos\KeyValueBundle\Type\EmailType'
+    tags:
+      - { name: 'lsbproject.key-value.type' }
 ```
 
-All fields will be converted to camel_case, even without regex rules.
+Default
+-------
 
-Note that the JSON is NOT compressed, so the keys are duplicated.  So the sqlite file is larger than the CSV by (rowCount * headerRowSize).  
-## Usage
+If there are no supported types found bundle will use default type.
+You can override it in config:
 
-```bash
-composer require survos/key-value-bundle
+```yaml
+    lsb_project_key-value:
+      default_type: Survos\KeyValueBundle\Type\DefaultType
 ```
 
-Initialize StorageBox with the sqlite database name plus any new tables to be created.
+Validate storage
+----------------
 
-Existing tables can be used, but automatic table creation is disabled. 
+If you do not want to use database as a storage for key-value you
+can implement your own `validate` method for a separate or default types.
+
+example of default `validate`
 
 ```php
-$kvDb = new StorageBox('translation.db', ['es', 'en'], 'en');
-$key = md5('dog');
-$kvDb->set($key, 'perro', 'es');
-$kvDb->set($key, 'dog'); // defaults to en
-$trans = $kvDb->get($key); // dog 
-$trans = $kvDb->get($key, 'es'); // perro 
-// trans is perro
+class DefaultType implements TypeInterface
+{
+    //...    
 
-// cache-like with callcack
-$trans = $kvDb->get($key, callback: fn($item) => $this->translator->trans('dog'));
-
-// keys are automatically slugified
-$trans = $kvDb->get('My name is', fn($item) => $this->translator->trans($item->key));
-
-// keys are automatically slugified
-$trans = $kvDb->get('My name is',   ) => $this->translator->trans($item->key));
-
+    /**
+     * {@inheritDoc}
+     */
+    public function validate(
+        string $value,
+        Constraint $constraint,
+        ExecutionContextInterface &$context,
+        KeyValueManagerInterface $manager
+    ): void {
+        if ($manager->isKeyValueed($value, $constraint->type, $constraint->caseSensetive)) {
+            $context->buildViolation($constraint->message)->addViolation();
+        }
+    }
+}
 ```
-
-
-## Multi-lingual StorageBox
-
-Specifically for kv lookups of text fields that may have translations
-
-```php
-$kvDb = new MLSB('property.db', ['label','description']);
-
-$key = 'Q31';
-$kvDb->set($key, 'label', 'Belgium', 'en-gb');
-$kvDb->set($key, 'description', 'constitutional monarchy in Western Europe', 'en-gb');
-
-$transArray = $kvDb->getFieldsByLocale($key, 'en-gb'); 
-// ['label' => 'Belgium'...]
-
-$label = $kvDb->getField($key, 'label', 'en-gb'); 
-// 'Belgium'
-
-$transArray = $kvDb->getFields($key); 
-// ['en-gb' => ['label' => 'Belgium', 'description'  => ...]]
-
-// ditto for set, needs transactions
-
-

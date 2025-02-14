@@ -1,7 +1,0 @@
-framework:
-    test: true
-    annotations: false
-
-survos_key_value:
-    directory: ./
-

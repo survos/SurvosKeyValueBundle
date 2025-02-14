@@ -1,9 +1,5 @@
 /vendor/
+.idea
+/phpstan/
+
 composer.lock
-/phpunit.xml
-/tests/cache
-/tests/Fixtures/var
-/.phpunit.cache
-/coverage
-*.pixy*
-*.pixie*
