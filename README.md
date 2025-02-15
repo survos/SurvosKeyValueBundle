@@ -1,135 +1,66 @@
-# BadBotBundle
+# KeyValueBundle
 
 Flexible bundle to handle Key Value(s) list, e.g. a dynamic list of ips and paths to block bad bots.
 
-Highly inspired by  lsbproject/key-value-bundle https://github.com/AntoineLemaire/KeyValueBundle
+Highly inspired by  lsbproject/blacklist-bundle https://github.com/AntoineLemaire/BlacklistBundle
 
 Installation
 ============
 
 ```console
-composer require survos/bad-bot-bundle
+composer require survos/key-value-bundle
 ```
 
 ### Update database schema
 
 ```console
 bin/console doctrine:schema:update --force
-bin/console bot:populate https://github.com/mitchellkrogza/apache-ultimate-bad-bot-blocker/raw/refs/heads/master/_generator_lists/bad-ip-addresses.list
 ```
 
-Usage
-=====
+## Purpose
 
-@todo: https://github.com/mitchellkrogza/apache-ultimate-bad-bot-blocker
+I found myself needing short, configurable lists in different application -- translation memory, spelling checks and most commonly, looking for paths and path patterns to include/exclude during monitoring.  
 
+## Usage
 
-@todo: refactor with annotations.
+Add properties by key, which are repeatable.
 
-Really this part could be a generic KeyValuesBundle, e.g. $kvManager->list('ip')
-
-```php
-    use Survos\KeyValueBundle\Validator\Constraints\IsNotKeyValueed;
-
-    //...
-
-    /**
-     * 'baz' type isn't defined in bundle, so it will be handled with
-     * default_type class. Default one has no validation and will compare
-     * any value with other existed
-     *
-     * @IsNotKeyValueed(type="baz", caseSensetive=true)
-     * @var string
-     */
-    private $bar;
-
-    /**
-     * 'email' type will dissallow to put invalid emails in key-value
-     *
-     * @IsNotKeyValueed(type="email", caseSensetive=true)
-     * @var string
-     */
-    private $email;
+```console
+bin/console survos:kv:add excluded_password password
+bin/console survos:kv:add excluded_password admin root 123
 ```
 
-Types
------
-
-Bundle tries to validate exact key-value type with validator types.
-You can implement your own type or use default one.
-To add your own validator just implement `TypeInterface`
-
-e.g.
+Then in code, check
 
 ```php
-use Survos\KeyValueBundle\Type\TypeInterface;
-use Survos\KeyValueBundle\Type\DefaultType;
-
-class EmailType extends DefaultType implements TypeInterface
-{
-    /**
-     * {@inheritDoc}
-     */
-    public function satisfies(string $value): bool
+    #[Route('/', name: 'app_homepage', methods: [Request::METHOD_GET])]
+    public function index(
+                          KeyValueManagerInterface $kvManager,
+                          ): Response
     {
-        return filter_var($value, FILTER_VALIDATE_EMAIL);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function supports(string $type): bool
-    {
-        return $type === 'email';
-    }
-}
-```
-
-and tag it with `lsbproject.key-value.type`
-
-```yaml
-  email_key-value_type:
-    class: 'Survos\KeyValueBundle\Type\EmailType'
-    tags:
-      - { name: 'lsbproject.key-value.type' }
-```
-
-Default
--------
-
-If there are no supported types found bundle will use default type.
-You can override it in config:
-
-```yaml
-    lsb_project_key-value:
-      default_type: Survos\KeyValueBundle\Type\DefaultType
-```
-
-Validate storage
-----------------
-
-If you do not want to use database as a storage for key-value you
-can implement your own `validate` method for a separate or default types.
-
-example of default `validate`
-
-```php
-class DefaultType implements TypeInterface
-{
-    //...    
-
-    /**
-     * {@inheritDoc}
-     */
-    public function validate(
-        string $value,
-        Constraint $constraint,
-        ExecutionContextInterface &$context,
-        KeyValueManagerInterface $manager
-    ): void {
-        if ($manager->isKeyValueed($value, $constraint->type, $constraint->caseSensetive)) {
-            $context->buildViolation($constraint->message)->addViolation();
+        if ($kvManager->has($password, 'excluded_password')) {
+            // 
         }
     }
-}
 ```
+
+This was originally design for use with BlockBotBundle
+
+```bash
+bin/console survos:kv:add bad_bot_path_pattern "wp-admin"
+bin/console survos:kv:add bad_bot_path_pattern "phpinfo.php"
+bin/console survos:kv:add bad_bot_path_pattern "\.php^"
+```
+
+```php
+    #[AsEventListener(RequestEvent::class, priority: 10000)]
+    public function onKernelRequest(RequestEvent $event): void
+    {
+        foreach ($this->kvManager->get('bad_bot_path_pattern') as $pattern) {
+            if (preg_match("$pattern", $path)) {
+                // temporarily block this IP 
+            }
+        }
+```
+
+

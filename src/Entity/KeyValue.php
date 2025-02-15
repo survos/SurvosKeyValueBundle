@@ -13,7 +13,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table]
 #[ORM\UniqueConstraint(name: 'assignment_unique', columns: ['type', 'value'])]
 // should values be indexed, for faster lookup
-class KeyValue
+class KeyValue implements \Stringable
 {
     /**
      * @var int
@@ -56,5 +56,10 @@ class KeyValue
     public function getType(): string
     {
         return $this->type ?? '';
+    }
+
+    public function __toString(): string
+    {
+        return sprintf("%s/%s", $this->type, $this->getValue());
     }
 }
