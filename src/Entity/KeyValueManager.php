@@ -81,7 +81,7 @@ class KeyValueManager implements KeyValueManagerInterface
     }
 
     /** {@inheritDoc} */
-    public function getList(string $type = null): array
+    public function getList(?string $type = null): array
     {
         $type ??= $this->getDefaultList();
         return $this->keyValueRepository->createQueryBuilder('kv')->select(['kv.value'])
