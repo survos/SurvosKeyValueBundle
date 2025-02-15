@@ -7,16 +7,19 @@ use Doctrine\ORM\EntityRepository;
 class KeyValueRepository extends EntityRepository
 {
     /** @codeCoverageIgnore */
-    public function matchValue(string $value, string $type, bool $isSensetive = true): bool
+    public function matchValue(string $value, string $type, bool $isCaseSensitive = true): bool
     {
-        $valCondition = $isSensetive ?
+        $valCondition = $isCaseSensitive ?
             "UPPER(t.value) = UPPER('{$value}')" :
             "t.value = '{$value}'";
 
-        return isset($this->createQueryBuilder('t')
+
+        // count() might be faster
+        return (bool) $this->createQueryBuilder('t')
             ->where($valCondition)
-            ->andWhere("t.type = '{$type}'")
+            ->andWhere("t.type = :type")
+                ->setParameter("type", $type)
             ->getQuery()
-            ->getResult()[0]);
+            ->getOneOrNullResult();
     }
 }

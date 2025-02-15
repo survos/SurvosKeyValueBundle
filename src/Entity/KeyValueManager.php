@@ -1,4 +1,4 @@
-<?php declare(strict_types = 1);
+<?php declare(strict_types=1);
 
 namespace Survos\KeyValueBundle\Entity;
 
@@ -15,14 +15,14 @@ class KeyValueManager implements KeyValueManagerInterface
         $this->repository = $this->em->getRepository(KeyValue::class);
     }
 
-    public function isKeyValueed(string $value, string $type, bool $sensetive = true): bool
+    public function has(string $value, string $type, bool $isCaseSensitive = true): bool
     {
-        return $this->repository->matchValue($value, $type, $sensetive);
+        return $this->repository->matchValue($value, $type, $isCaseSensitive);
     }
 
-    public function addToKeyValue(string $value, string $type, bool $flush = true): void
+    public function add(string $value, string $type, bool $flush = true): void
     {
-        $this->add($value, $type);
+        $this->persist($value, $type);
 
         if ($flush) {
             $this->em->flush();
@@ -30,18 +30,16 @@ class KeyValueManager implements KeyValueManagerInterface
     }
 
     /** {@inheritDoc} */
-    public function getList(?string $type = null): array
+    public function getList(string $type = null): array
     {
-        if (!$type) {
-            return $this->repository->findAll();
-        }
-
-        return $this->repository->findBy([
-            'type' => $type,
-        ]);
+        return $this->repository->createQueryBuilder('kv')->select(['value'])
+            ->andWhere('kv.type = :type')
+            ->setParameter('type', $type)
+            ->getQuery()
+            ->getResult();
     }
 
-    private function add(string $value, string $type): void
+    private function persist(string $value, string $type): void
     {
         $this->em->persist(new KeyValue($value, $type));
     }

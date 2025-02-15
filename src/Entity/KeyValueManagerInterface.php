@@ -4,9 +4,9 @@ namespace Survos\KeyValueBundle\Entity;
 
 interface KeyValueManagerInterface
 {
-    public function isKeyValueed(string $value, string $type, bool $sensetive = true): bool;
-    public function addToKeyValue(string $value, string $type, bool $flush = true): void;
+    public function has(string $value, string $type, bool $isCaseSensitive = true): bool;
+    public function add(string $value, string $type, bool $flush = true): void;
 
     /** @return array<KeyValue> */
-    public function getList(?string $type = null): array;
+    public function getList(string $type): array;
 }

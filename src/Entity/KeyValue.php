@@ -1,4 +1,6 @@
-<?php declare(strict_types = 1);
+<?php declare(strict_types=1);
+
+// good candidate for php 8.4!
 
 namespace Survos\KeyValueBundle\Entity;
 
@@ -6,41 +8,40 @@ use Doctrine\ORM\Mapping as ORM;
 use Survos\KeyValueBundle\Repository\KeyValueRepository;
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * @codeCoverageIgnore
- */
+
 #[ORM\Entity(repositoryClass: KeyValueRepository::class)]
 #[ORM\Table]
-#[ORM\UniqueConstraint(name: 'assignment_unique', columns: ['type', 'value'])]
+#[ORM\UniqueConstraint(name: 'kv_type_value', columns: ['type', 'value'])]
 // should values be indexed, for faster lookup
 class KeyValue implements \Stringable
 {
     /**
+     *
+     * @todo: hash string for integration with service
+     *
      * @var int
      */
     #[ORM\Id]
     #[ORM\GeneratedValue()]
     #[ORM\Column(type: 'integer')]
-    protected $id;
+    protected int $id;
 
-    /**
-     * @var string|null
-     */
-    #[ORM\Column(type: 'string', length: 255, nullable: false)]
-    #[Assert\NotBlank]
-    protected string $type;
+    public function __construct(
+        /**
+         * @var string|null
+         */
+        #[ORM\Column(type: 'string', length: 255, nullable: false)]
+        #[Assert\NotBlank]
+        protected string $type,
 
-    /**
-     * @var string|null
-     */
-    #[ORM\Column(type: 'string', nullable: false)]
-    #[Assert\NotBlank]
-    protected $value;
-
-    public function __construct(string $value, string $type)
+        /**
+         * @var string|null
+         */
+        #[ORM\Column(type: 'string', nullable: false)]
+        #[Assert\NotBlank]
+        protected        $value,
+    )
     {
-        $this->value = $value;
-        $this->type = $type;
     }
 
     public function getId(): int

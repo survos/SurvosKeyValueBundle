@@ -33,7 +33,7 @@ class KeyValueAdd extends Command
         /** @var string */
         $value = $input->getArgument('value');
 
-        $this->kvManager->addToKeyValue($value, $type);
+        $this->kvManager->add($value, $type);
 
         (new SymfonyStyle($input, $output))->success("Added $type $value");
 

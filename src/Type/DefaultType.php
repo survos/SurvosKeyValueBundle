@@ -31,7 +31,7 @@ class DefaultType implements TypeInterface
         ExecutionContextInterface &$context,
         KeyValueManagerInterface $manager
     ): void {
-        if ($manager->isKeyValueed($value, $constraint->type, $constraint->caseSensitive)) {
+        if ($manager->has($value, $constraint->type, $constraint->caseSensitive)) {
             $context->buildViolation($constraint->message)->addViolation();
         }
     }
