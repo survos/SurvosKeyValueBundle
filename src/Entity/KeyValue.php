@@ -30,16 +30,17 @@ class KeyValue implements \Stringable
         /**
          * @var string|null
          */
-        #[ORM\Column(type: 'string', length: 255, nullable: false)]
+        #[ORM\Column(type: 'string', nullable: false)]
         #[Assert\NotBlank]
-        protected string $type,
+        protected        $value,
 
         /**
          * @var string|null
          */
-        #[ORM\Column(type: 'string', nullable: false)]
+        #[ORM\Column(type: 'string', length: 255, nullable: false)]
         #[Assert\NotBlank]
-        protected        $value,
+        protected string $type,
+
     )
     {
     }
